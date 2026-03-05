@@ -5,7 +5,7 @@ import React, { useState, useMemo } from 'react';
 import theme from '../config/theme';
 import { DB_KEYS, OPTIONS } from '../config/db';
 import useDB from '../hooks/useDB';
-import { Input, Select } from '../components/ui/Input';
+import { Input, Select, Textarea } from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
 import Badge from '../components/ui/Badge';
