@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import theme from '../config/theme';
 import { useAuth } from '../context/AuthContext';
-import logoLight from '../assets/logo-light.png';
 import logoDark  from '../assets/logo-dark.png';
 
 const T = theme;
