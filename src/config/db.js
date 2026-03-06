@@ -30,10 +30,10 @@ export const DB_KEYS = {
   TASKS:      'tasks:',
   PIPELINES:  'pipelines:',
 
-  // ── ADD NEW DATA TYPES HERE ─────────────────────────────────────────────
-  // PRODUCTS:  'products:',
-  // PROJECTS:  'projects:',
-  // TICKETS:   'tickets:',
+  // ── NEW DATA TYPES ────────────────────────────────────────────────────────
+  PRODUCTS:  'products:',
+  PROJECTS:  'projects:',
+  TICKETS:   'tickets:',
   // ───────────────────────────────────────────────────────────────────────
 };
 
@@ -89,4 +89,16 @@ export const OPTIONS = {
 
   // User roles (shown at signup)
   userRoles: ['Sales Rep', 'Sales Manager', 'Account Manager', 'Business Developer', 'CEO / Founder', 'Other'],
+
+  // Project statuses
+  projectStatuses: ['Planning', 'Active', 'On Hold', 'Completed', 'Cancelled'],
+
+  // Ticket statuses
+  ticketStatuses: ['Open', 'In Progress', 'Waiting on Customer', 'Resolved', 'Closed'],
+
+  // Ticket priorities
+  ticketPriorities: ['Low', 'Normal', 'High', 'Urgent'],
+
+  // Product categories
+  productCategories: ['Software', 'Hardware', 'Service', 'Subscription', 'Other'],
 };

@@ -23,6 +23,10 @@ import ContractsPage  from './pages/ContractsPage';
 import InvoicesPage   from './pages/InvoicesPage';
 import PaymentsPage   from './pages/PaymentsPage';
 import TasksPage      from './pages/TasksPage';
+import ProductsPage   from './pages/ProductsPage';
+import ProjectsPage   from './pages/ProjectsPage';
+import TicketsPage    from './pages/TicketsPage';
+import ReportsPage    from './pages/ReportsPage';
 // ✏️  Import new pages here ↑
 
 // ── Data hook & config ────────────────────────────────────────────────────────
@@ -62,6 +66,9 @@ function CRMShell() {
   const payments  = useDB(DB_KEYS.PAYMENTS);
   const tasks     = useDB(DB_KEYS.TASKS);
   const pipelines = useDB(DB_KEYS.PIPELINES);
+  const products  = useDB(DB_KEYS.PRODUCTS);
+  const projects  = useDB(DB_KEYS.PROJECTS);
+  const tickets   = useDB(DB_KEYS.TICKETS);
   // ✏️  Add new data hooks here ↑
 
   // ── Sidebar badge counts ───────────────────────────────────────────────────
@@ -74,6 +81,9 @@ function CRMShell() {
     invoices:  invoices.items.length,
     payments:  payments.items.length,
     tasks:     tasks.items.filter(t => t.status !== 'Completed').length,
+    products:  products.items.length,
+    projects:  projects.items.filter(p => !['Completed', 'Cancelled'].includes(p.status)).length,
+    tickets:   tickets.items.filter(t => !['Resolved', 'Closed'].includes(t.status)).length,
   };
 
   // ── Page map — add new pages here ─────────────────────────────────────────
@@ -128,6 +138,22 @@ function CRMShell() {
       <TasksPage
         contacts={contacts.items}
       />
+    ),
+    products: (
+      <ProductsPage />
+    ),
+    projects: (
+      <ProjectsPage 
+        companies={companies.items}
+      />
+    ),
+    tickets: (
+      <TicketsPage 
+        contacts={contacts.items}
+      />
+    ),
+    reports: (
+      <ReportsPage />
     ),
     // ✏️  Add new pages here:
     // mypage: <MyNewPage />,
