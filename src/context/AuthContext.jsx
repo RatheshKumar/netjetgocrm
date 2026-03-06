@@ -33,12 +33,22 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ── Login ──────────────────────────────────────────────────────────────────
-  const login = async (email, password) => {
+  const login = async (email, password, requiredRole = null) => {
     const cleanEmail = email.toLowerCase().trim();
     const savedUser  = await storage.get(`${DB_KEYS.USERS}${cleanEmail}`);
 
-    if (!savedUser)              return { ok: false, error: 'No account found with this email.' };
+    if (!savedUser) return { ok: false, error: 'No account found with this email.' };
     if (savedUser.password !== password) return { ok: false, error: 'Incorrect password.' };
+
+    const isAdmin = savedUser.role === 'Admin' || savedUser.role === 'Administrator';
+    
+    // Cross-role barriers
+    if (requiredRole === 'admin' && !isAdmin) {
+      return { ok: false, error: 'Access denied: Administrators only.' };
+    }
+    if (requiredRole === 'user' && isAdmin) {
+      return { ok: false, error: 'Please use the Admin portal at /admin to log in.' };
+    }
 
     await storage.save(DB_KEYS.SESSION, { email: cleanEmail, loginAt: new Date().toISOString() });
     setUser(savedUser);

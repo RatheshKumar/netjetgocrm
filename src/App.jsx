@@ -9,9 +9,12 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/layout/Sidebar';
 import Topbar  from './components/layout/Topbar';
 
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
 // ── Auth pages ────────────────────────────────────────────────────────────────
-import LoginPage  from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
+import LoginPage      from './pages/LoginPage';
+import AdminLoginPage from './pages/AdminLoginPage';
+import SignupPage     from './pages/SignupPage';
 
 // ── CRM pages ─────────────────────────────────────────────────────────────────
 import DashboardPage  from './pages/DashboardPage';
@@ -186,9 +189,8 @@ function CRMShell() {
 // =============================================================================
 // AUTH GATE — decides whether to show login/signup or the CRM
 // =============================================================================
-function AuthGate() {
+function AuthGate({ requireAdmin, authView, setAuthView }) {
   const { user, loading } = useAuth();
-  const [authView, setAuthView] = useState('login'); // 'login' | 'signup'
 
   // Loading spinner while session is being restored
   if (loading) {
@@ -202,9 +204,29 @@ function AuthGate() {
 
   // Not logged in — show auth pages
   if (!user) {
+    if (requireAdmin) {
+      return <AdminLoginPage />;
+    }
     return authView === 'login'
       ? <LoginPage  onGoSignup={() => setAuthView('signup')} />
       : <SignupPage onGoLogin={()  => setAuthView('login')}  />;
+  }
+
+  // Enforce role separation for active sessions
+  const isAdmin = user.role === 'Admin' || user.role === 'Administrator';
+  
+  if (requireAdmin && !isAdmin) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', fontFamily: T.fonts.body, color: T.text.primary }}>
+        <h2>Unauthorized</h2>
+        <p style={{ color: T.text.muted, marginTop: 10 }}>You must be an Administrator to access this portal.</p>
+        <button onClick={() => window.location.href = '/'} style={{ marginTop: 20, padding: '10px 20px', background: T.brand.indigo, color: '#fff', border: 'none', borderRadius: T.radius.md, cursor: 'pointer' }}>Go to User Portal</button>
+      </div>
+    );
+  }
+
+  if (!requireAdmin && isAdmin) {
+    return <Navigate to="/admin" replace />;
   }
 
   // Logged in — show CRM
@@ -215,6 +237,8 @@ function AuthGate() {
 // ROOT EXPORT
 // =============================================================================
 export default function App() {
+  const [authView, setAuthView] = useState('login'); // 'login' | 'signup'
+
   // Inject global CSS once on mount
   useEffect(() => {
     const style = document.createElement('style');
@@ -225,7 +249,13 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <AuthGate />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<AuthGate requireAdmin={false} authView={authView} setAuthView={setAuthView} />} />
+          <Route path="/admin" element={<AuthGate requireAdmin={true} authView={authView} setAuthView={setAuthView} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
     </AuthProvider>
   );
 }

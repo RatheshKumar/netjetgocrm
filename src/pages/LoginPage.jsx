@@ -21,7 +21,7 @@ function LoginPage({ onGoSignup }) {
     setError('');
     if (!form.email || !form.password) { setError('Please fill in all fields.'); return; }
     setLoading(true);
-    const res = await login(form.email, form.password);
+    const res = await login(form.email, form.password, 'user');
     if (!res.ok) setError(res.error);
     setLoading(false);
   };
@@ -116,6 +116,12 @@ function LoginPage({ onGoSignup }) {
             <button onClick={onGoSignup} style={{ background: 'none', border: 'none', color: T.brand.indigo, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
               Create one →
             </button>
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12 }}>
+            <a href="/admin" style={{ color: T.text.muted, textDecoration: 'none' }}>
+              Administrator Login →
+            </a>
           </div>
         </div>
       </div>
