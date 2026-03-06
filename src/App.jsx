@@ -27,6 +27,7 @@ import ProductsPage   from './pages/ProductsPage';
 import ProjectsPage   from './pages/ProjectsPage';
 import TicketsPage    from './pages/TicketsPage';
 import ReportsPage    from './pages/ReportsPage';
+import SettingsPage   from './pages/SettingsPage';
 // ✏️  Import new pages here ↑
 
 // ── Data hook & config ────────────────────────────────────────────────────────
@@ -154,6 +155,9 @@ function CRMShell() {
     ),
     reports: (
       <ReportsPage />
+    ),
+    settings: (
+      <SettingsPage />
     ),
     // ✏️  Add new pages here:
     // mypage: <MyNewPage />,

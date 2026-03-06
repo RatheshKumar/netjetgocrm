@@ -24,6 +24,9 @@ const navigation = [
   { id: 'projects',   label: 'Projects',         icon: '🏗️' },
   { id: 'tickets',    label: 'Tickets',          icon: '🎫' },
   { id: 'reports',    label: 'Reports',          icon: '📊' },
+
+  // System
+  { id: 'settings',   label: 'Settings',         icon: '⚙️' },
 ];
 
 export default navigation;
