@@ -20,8 +20,10 @@ const storage = {
    */
   async get(key) {
     try {
-      const result = await window.storage.get(key);
-      return result ? JSON.parse(result.value) : null;
+      const response = await fetch(`/api/storage/${key}`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data ? JSON.parse(data.value) : null;
     } catch (err) {
       console.warn(`[storage.get] Failed for key "${key}":`, err);
       return null;
@@ -35,8 +37,14 @@ const storage = {
    */
   async save(key, data) {
     try {
-      await window.storage.set(key, JSON.stringify(data));
-      return true;
+      const response = await fetch(`/api/storage/${key}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+      return response.ok;
     } catch (err) {
       console.error(`[storage.save] Failed for key "${key}":`, err);
       return false;
@@ -48,8 +56,10 @@ const storage = {
    */
   async remove(key) {
     try {
-      await window.storage.delete(key);
-      return true;
+      const response = await fetch(`/api/storage/${key}`, {
+        method: 'DELETE'
+      });
+      return response.ok;
     } catch (err) {
       console.error(`[storage.remove] Failed for key "${key}":`, err);
       return false;
@@ -63,9 +73,11 @@ const storage = {
    */
   async getAll(prefix) {
     try {
-      const result = await window.storage.list(prefix);
-      const keys   = result?.keys || [];
-      const items  = await Promise.all(keys.map(k => storage.get(k)));
+      const response = await fetch(`/api/storage?prefix=${prefix}`);
+      if (!response.ok) return [];
+      const data = await response.json();
+      const keys = data.keys || [];
+      const items = await Promise.all(keys.map(k => storage.get(k)));
       return items
         .filter(Boolean)
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
