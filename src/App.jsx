@@ -16,6 +16,13 @@ import LoginPage      from './pages/LoginPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import SignupPage     from './pages/SignupPage';
 
+// ── ERP Auth pages ────────────────────────────────────────────────────────────
+import ERPLoginPage  from './pages/erp/ERPLoginPage';
+import ERPSignupPage from './pages/erp/ERPSignupPage';
+
+// ── ERP Shell ─────────────────────────────────────────────────────────────────
+import ERPShell from './erp/ERPShell';
+
 // ── CRM pages ─────────────────────────────────────────────────────────────────
 import DashboardPage  from './pages/DashboardPage';
 import ContactsPage   from './pages/ContactsPage';
@@ -187,7 +194,7 @@ function CRMShell() {
 }
 
 // =============================================================================
-// AUTH GATE — decides whether to show login/signup or the CRM
+// CRM AUTH GATE — decides whether to show login/signup or the CRM
 // =============================================================================
 function AuthGate({ requireAdmin, authView, setAuthView }) {
   const { user, loading } = useAuth();
@@ -234,10 +241,35 @@ function AuthGate({ requireAdmin, authView, setAuthView }) {
 }
 
 // =============================================================================
+// ERP AUTH GATE — decides whether to show ERP login/signup or the ERP shell
+// =============================================================================
+function ERPAuthGate({ erpView, setErpView }) {
+  const { erpUser, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 14 }}>
+        <div style={{ width: 34, height: 34, borderRadius: '50%', border: `3px solid ${T.border.light}`, borderTopColor: T.brand.indigo, animation: 'spin 0.7s linear infinite' }} />
+        <span style={{ color: T.text.muted, fontSize: 13 }}>Loading ERP…</span>
+      </div>
+    );
+  }
+
+  if (!erpUser) {
+    return erpView === 'login'
+      ? <ERPLoginPage  onGoSignup={() => setErpView('signup')} />
+      : <ERPSignupPage onGoLogin={() => setErpView('login')}   />;
+  }
+
+  return <ERPShell />;
+}
+
+// =============================================================================
 // ROOT EXPORT
 // =============================================================================
 export default function App() {
-  const [authView, setAuthView] = useState('login'); // 'login' | 'signup'
+  const [authView, setAuthView] = useState('login'); // 'login' | 'signup' for CRM
+  const [erpView,  setErpView]  = useState('login'); // 'login' | 'signup' for ERP
 
   // Inject global CSS once on mount
   useEffect(() => {
@@ -251,8 +283,15 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* CRM routes */}
           <Route path="/" element={<AuthGate requireAdmin={false} authView={authView} setAuthView={setAuthView} />} />
           <Route path="/admin" element={<AuthGate requireAdmin={true} authView={authView} setAuthView={setAuthView} />} />
+
+          {/* ERP routes */}
+          <Route path="/erp" element={<ERPAuthGate erpView={erpView} setErpView={setErpView} />} />
+          <Route path="/erp/*" element={<ERPAuthGate erpView={erpView} setErpView={setErpView} />} />
+
+          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

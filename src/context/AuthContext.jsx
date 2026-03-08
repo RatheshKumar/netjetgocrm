@@ -1,11 +1,10 @@
 // =============================================================================
 // src/context/AuthContext.jsx
 // =============================================================================
-// 🔐 AUTH CONTEXT — Manages the logged-in user across the whole app.
+// 🔐 AUTH CONTEXT — Manages CRM and ERP user sessions separately.
 //
-// Provides: user, loading, login(), signup(), logout()
-// Wrap your app with <AuthProvider> (done in index.js already).
-// Access anywhere with: const { user, login, logout } = useAuth();
+// CRM:  user, login(), signup(), logout()
+// ERP:  erpUser, erpLogin(), erpSignup(), erpLogout()
 // =============================================================================
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -17,22 +16,30 @@ const AuthContext = createContext(null);
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
+  const [user,    setUser]    = useState(null);
+  const [erpUser, setErpUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On app load: restore session from storage
+  // On app load: restore both CRM and ERP sessions from storage
   useEffect(() => {
     (async () => {
+      // CRM session
       const session = await storage.get(DB_KEYS.SESSION);
       if (session?.email) {
         const savedUser = await storage.get(`${DB_KEYS.USERS}${session.email}`);
         if (savedUser) setUser(savedUser);
       }
+      // ERP session
+      const erpSession = await storage.get(DB_KEYS.ERP_SESSION);
+      if (erpSession?.email) {
+        const savedErpUser = await storage.get(`${DB_KEYS.ERP_USERS}${erpSession.email}`);
+        if (savedErpUser) setErpUser(savedErpUser);
+      }
       setLoading(false);
     })();
   }, []);
 
-  // ── Login ──────────────────────────────────────────────────────────────────
+  // ── CRM Login ──────────────────────────────────────────────────────────────
   const login = async (email, password, requiredRole = null) => {
     const cleanEmail = email.toLowerCase().trim();
     const savedUser  = await storage.get(`${DB_KEYS.USERS}${cleanEmail}`);
@@ -41,8 +48,7 @@ export function AuthProvider({ children }) {
     if (savedUser.password !== password) return { ok: false, error: 'Incorrect password.' };
 
     const isAdmin = savedUser.role === 'Admin' || savedUser.role === 'Administrator';
-    
-    // Cross-role barriers
+
     if (requiredRole === 'admin' && !isAdmin) {
       return { ok: false, error: 'Access denied: Administrators only.' };
     }
@@ -55,7 +61,7 @@ export function AuthProvider({ children }) {
     return { ok: true };
   };
 
-  // ── Signup ─────────────────────────────────────────────────────────────────
+  // ── CRM Signup ─────────────────────────────────────────────────────────────
   const signup = async ({ name, email, password, role }) => {
     const cleanEmail = email.toLowerCase().trim();
     const existing   = await storage.get(`${DB_KEYS.USERS}${cleanEmail}`);
@@ -66,7 +72,7 @@ export function AuthProvider({ children }) {
       id:        generateId(),
       name:      name.trim(),
       email:     cleanEmail,
-      password,                          // NOTE: In production, hash passwords server-side
+      password,
       role:      role || 'Sales Rep',
       initials:  getInitials(name),
       createdAt: new Date().toISOString(),
@@ -78,14 +84,58 @@ export function AuthProvider({ children }) {
     return { ok: true };
   };
 
-  // ── Logout ─────────────────────────────────────────────────────────────────
+  // ── CRM Logout ─────────────────────────────────────────────────────────────
   const logout = async () => {
     await storage.remove(DB_KEYS.SESSION);
     setUser(null);
   };
 
+  // ── ERP Login ──────────────────────────────────────────────────────────────
+  const erpLogin = async (email, password) => {
+    const cleanEmail = email.toLowerCase().trim();
+    const savedUser  = await storage.get(`${DB_KEYS.ERP_USERS}${cleanEmail}`);
+
+    if (!savedUser) return { ok: false, error: 'No ERP account found with this email.' };
+    if (savedUser.password !== password) return { ok: false, error: 'Incorrect password.' };
+
+    await storage.save(DB_KEYS.ERP_SESSION, { email: cleanEmail, loginAt: new Date().toISOString() });
+    setErpUser(savedUser);
+    return { ok: true };
+  };
+
+  // ── ERP Signup ─────────────────────────────────────────────────────────────
+  const erpSignup = async ({ name, email, password, role, shopName }) => {
+    const cleanEmail = email.toLowerCase().trim();
+    const existing   = await storage.get(`${DB_KEYS.ERP_USERS}${cleanEmail}`);
+
+    if (existing) return { ok: false, error: 'An ERP account with this email already exists.' };
+
+    const newUser = {
+      id:        generateId(),
+      name:      name.trim(),
+      email:     cleanEmail,
+      password,
+      role:      role || 'Shop Owner',
+      shopName:  shopName?.trim() || '',
+      initials:  getInitials(name),
+      system:    'erp',
+      createdAt: new Date().toISOString(),
+    };
+
+    await storage.save(`${DB_KEYS.ERP_USERS}${cleanEmail}`, newUser);
+    await storage.save(DB_KEYS.ERP_SESSION, { email: cleanEmail });
+    setErpUser(newUser);
+    return { ok: true };
+  };
+
+  // ── ERP Logout ─────────────────────────────────────────────────────────────
+  const erpLogout = async () => {
+    await storage.remove(DB_KEYS.ERP_SESSION);
+    setErpUser(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, erpUser, loading, login, signup, logout, erpLogin, erpSignup, erpLogout }}>
       {children}
     </AuthContext.Provider>
   );

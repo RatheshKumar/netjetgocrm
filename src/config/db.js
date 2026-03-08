@@ -35,6 +35,17 @@ export const DB_KEYS = {
   PROJECTS:  'projects:',
   TICKETS:   'tickets:',
   // ───────────────────────────────────────────────────────────────────────
+
+  // ── ERP Data ─────────────────────────────────────────────────────────────
+  ERP_SESSION:   'erp_session:current',
+  ERP_USERS:     'erp_users:',
+  ERP_INVENTORY: 'erp_inventory:',
+  ERP_PURCHASES: 'erp_purchases:',
+  ERP_SUPPLIERS: 'erp_suppliers:',
+  ERP_EMPLOYEES: 'erp_employees:',
+  ERP_PAYROLL:   'erp_payroll:',
+  ERP_POS_SALES: 'erp_pos_sales:',
+  // ─────────────────────────────────────────────────────────────────────────
 };
 
 // =============================================================================
@@ -101,4 +112,14 @@ export const OPTIONS = {
 
   // Product categories
   productCategories: ['Software', 'Hardware', 'Service', 'Subscription', 'Other'],
+
+  // ── ERP Options ───────────────────────────────────────────────────────────
+  erpRoles: ['Shop Owner', 'Manager', 'Cashier', 'Stock Clerk', 'Accountant', 'Other'],
+  erpInventoryCategories: ['Electronics', 'Clothing', 'Food & Beverage', 'Health & Beauty', 'Home & Garden', 'Toys & Games', 'Sports', 'Books & Stationery', 'Automotive', 'Other'],
+  erpPurchaseStatuses: ['Draft', 'Ordered', 'Received', 'Partial', 'Cancelled'],
+  erpSupplierStatuses: ['Active', 'Inactive', 'Blacklisted'],
+  erpEmployeeStatuses: ['Active', 'On Leave', 'Terminated'],
+  erpEmployeeDepts: ['Sales', 'Warehouse', 'Finance', 'HR', 'IT', 'Management', 'Delivery'],
+  erpPayrollStatuses: ['Pending', 'Paid', 'On Hold'],
+  erpPaymentMethods: ['Cash', 'Credit Card', 'Debit Card', 'Mobile Payment', 'Bank Transfer'],
 };
