@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const mysql = require('mysql2/promise');
+const { createClient } = require('@libsql/client');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -10,34 +10,22 @@ app.use(cors());
 app.use(express.json());
 
 // MySQL connection configuration
-const dbConfig = {
-  host: '127.0.0.1',
-  user: 'root',
-  password: 'Root@12345',
-  port: 3306
-};
-
-let pool;
+// libSQL connection configuration
+let client;
 
 // ===================================================
 // Initialize Database & Tables
 // ===================================================
 async function initDB() {
   try {
-    const connection = await mysql.createConnection(dbConfig);
-    await connection.query('CREATE DATABASE IF NOT EXISTS netjetgocrm_db');
-    console.log('✅ Database "netjetgocrm_db" ready.');
-    await connection.end();
-
-    pool = mysql.createPool({
-      ...dbConfig,
-      database: 'netjetgocrm_db',
-      waitForConnections: true,
-      connectionLimit: 10
+    client = createClient({
+      url: process.env.TURSO_DATABASE_URL || 'file:./crm.db',
+      authToken: process.env.TURSO_AUTH_TOKEN,
     });
+    console.log('✅ Database connected.');
 
     // ── Generic key-value storage (used by frontend storage.js) ──────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS storage (
         \`key\`    VARCHAR(255) PRIMARY KEY,
         \`value\`  JSON         NOT NULL,
@@ -47,7 +35,7 @@ async function initDB() {
     console.log('✅ Table: storage');
 
     // ── CRM: Users ────────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS crm_users (
         id        VARCHAR(36)  PRIMARY KEY,
         name      VARCHAR(255) NOT NULL,
@@ -55,13 +43,13 @@ async function initDB() {
         password  VARCHAR(255),
         role      VARCHAR(100),
         createdAt DATETIME     DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt DATETIME     DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: crm_users');
 
     // ── CRM: Companies ────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS companies (
         id        VARCHAR(36)  PRIMARY KEY,
         name      VARCHAR(255) NOT NULL,
@@ -72,13 +60,13 @@ async function initDB() {
         address   TEXT,
         size      VARCHAR(50),
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: companies');
 
     // ── CRM: Contacts ─────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS contacts (
         id        VARCHAR(36)  PRIMARY KEY,
         name      VARCHAR(255) NOT NULL,
@@ -88,13 +76,13 @@ async function initDB() {
         company   VARCHAR(255),
         notes     TEXT,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: contacts');
 
     // ── CRM: Leads ────────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS leads (
         id        VARCHAR(36)   PRIMARY KEY,
         name      VARCHAR(255)  NOT NULL,
@@ -107,13 +95,13 @@ async function initDB() {
         source    VARCHAR(100),
         notes     TEXT,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: leads');
 
     // ── CRM: Contracts ────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS contracts (
         id           VARCHAR(36)   PRIMARY KEY,
         title        VARCHAR(255)  NOT NULL,
@@ -125,13 +113,13 @@ async function initDB() {
         endDate      DATE,
         notes        TEXT,
         createdAt    DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt    DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: contracts');
 
     // ── CRM: Invoices ─────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS invoices (
         id          VARCHAR(36)   PRIMARY KEY,
         invoiceNo   VARCHAR(100),
@@ -142,13 +130,13 @@ async function initDB() {
         issuedDate  DATE,
         notes       TEXT,
         createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: invoices');
 
     // ── CRM: Payments ─────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS payments (
         id        VARCHAR(36)   PRIMARY KEY,
         client    VARCHAR(255),
@@ -158,13 +146,13 @@ async function initDB() {
         date      DATE,
         notes     TEXT,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: payments');
 
     // ── CRM: Tasks ────────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS tasks (
         id          VARCHAR(36)  PRIMARY KEY,
         title       VARCHAR(255) NOT NULL,
@@ -175,13 +163,13 @@ async function initDB() {
         assignedTo  VARCHAR(255),
         relatedTo   VARCHAR(255),
         createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: tasks');
 
     // ── CRM: Pipeline ─────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS pipelines (
         id        VARCHAR(36)   PRIMARY KEY,
         name      VARCHAR(255)  NOT NULL,
@@ -194,13 +182,13 @@ async function initDB() {
         closeDate DATE,
         notes     TEXT,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: pipelines');
 
     // ── CRM: Products ─────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS products (
         id          VARCHAR(36)   PRIMARY KEY,
         name        VARCHAR(255)  NOT NULL,
@@ -209,13 +197,13 @@ async function initDB() {
         description TEXT,
         sku         VARCHAR(100),
         createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: products');
 
     // ── CRM: Projects ─────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS projects (
         id          VARCHAR(36)  PRIMARY KEY,
         name        VARCHAR(255) NOT NULL,
@@ -226,13 +214,13 @@ async function initDB() {
         budget      DECIMAL(15,2),
         description TEXT,
         createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: projects');
 
     // ── CRM: Tickets ──────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS tickets (
         id          VARCHAR(36)  PRIMARY KEY,
         subject     VARCHAR(255) NOT NULL,
@@ -242,13 +230,13 @@ async function initDB() {
         description TEXT,
         assignedTo  VARCHAR(255),
         createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: tickets');
 
     // ── ERP: Users ────────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS erp_users (
         id        VARCHAR(36)  PRIMARY KEY,
         name      VARCHAR(255) NOT NULL,
@@ -256,13 +244,13 @@ async function initDB() {
         password  VARCHAR(255),
         role      VARCHAR(100),
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: erp_users');
 
     // ── ERP: Inventory ────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS erp_inventory (
         id                VARCHAR(36)   PRIMARY KEY,
         name              VARCHAR(255)  NOT NULL,
@@ -276,13 +264,13 @@ async function initDB() {
         unit              VARCHAR(50)   DEFAULT 'pcs',
         supplier          VARCHAR(255),
         createdAt         DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt         DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt         DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: erp_inventory');
 
     // ── ERP: Suppliers ────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS erp_suppliers (
         id          VARCHAR(36)  PRIMARY KEY,
         name        VARCHAR(255) NOT NULL,
@@ -293,13 +281,13 @@ async function initDB() {
         status      VARCHAR(50)  DEFAULT 'Active',
         notes       TEXT,
         createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: erp_suppliers');
 
     // ── ERP: Purchases ────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS erp_purchases (
         id           VARCHAR(36)   PRIMARY KEY,
         poNumber     VARCHAR(100),
@@ -311,13 +299,13 @@ async function initDB() {
         items        JSON,
         notes        TEXT,
         createdAt    DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt    DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: erp_purchases');
 
     // ── ERP: Employees ────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS erp_employees (
         id          VARCHAR(36)  PRIMARY KEY,
         name        VARCHAR(255) NOT NULL,
@@ -330,13 +318,13 @@ async function initDB() {
         joinDate    DATE,
         address     TEXT,
         createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: erp_employees');
 
     // ── ERP: Payroll ──────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS erp_payroll (
         id            VARCHAR(36)   PRIMARY KEY,
         employeeId    VARCHAR(36),
@@ -350,13 +338,13 @@ async function initDB() {
         paymentMethod VARCHAR(100),
         paidOn        DATE,
         createdAt     DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('✅ Table: erp_payroll');
 
     // ── ERP: POS Sales ────────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS erp_pos_sales (
         id            VARCHAR(36)   PRIMARY KEY,
         saleNo        VARCHAR(100),
@@ -374,9 +362,9 @@ async function initDB() {
     console.log('✅ Table: erp_pos_sales');
 
     // ── System: Login Logs ────────────────────────────────────────────────────
-    await pool.query(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS login_logs (
-        id          INT AUTO_INCREMENT PRIMARY KEY,
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
         userId      VARCHAR(36),
         email       VARCHAR(255) NOT NULL,
         \`system\`      VARCHAR(50)  NOT NULL, 
@@ -444,7 +432,7 @@ async function syncToSpecializedTable(key, value, isDelete = false) {
 
   if (isDelete) {
     try {
-      await pool.query(`DELETE FROM ${table} WHERE id = ?`, [id]);
+      await client.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
     } catch (err) {
       console.warn(`[syncToSpecializedTable] Delete failed for ${table}:`, err.message);
     }
@@ -471,15 +459,15 @@ async function syncToSpecializedTable(key, value, isDelete = false) {
     if (keys.length === 0) return;
 
     const placeholders = keys.map(() => '?').join(', ');
-    const updates = keys.map(k => `\`${k}\` = VALUES(\`${k}\`)`).join(', ');
+    const updates = keys.map(k => `\`${k}\` = excluded.\`${k}\``).join(', ');
 
     const query = `
       INSERT INTO ${table} (${keys.map(k => `\`${k}\``).join(', ')})
       VALUES (${placeholders})
-      ON DUPLICATE KEY UPDATE ${updates}
+      ON CONFLICT(id) DO UPDATE SET ${updates}
     `;
     
-    await pool.query(query, Object.values(validData));
+    await client.execute({ sql: query, args: Object.values(validData) });
     console.log(`[syncToSpecializedTable] Successfully synced to ${table}`);
   } catch (err) {
     console.warn(`[syncToSpecializedTable] Sync failed for ${table}:`, err.message);
@@ -494,8 +482,8 @@ app.get('/api/storage', async (req, res) => {
   // Optimization: If it's a specialized table, we can list keys from there too.
   // But for now, keeping it simple and reading from 'storage' table for consistency.
   try {
-    const [rows] = await pool.query('SELECT `key` FROM storage WHERE `key` LIKE ?', [`${prefix}%`]);
-    res.json({ keys: rows.map(r => r.key) });
+    const result = await client.execute({ sql: 'SELECT `key` FROM storage WHERE `key` LIKE ?', args: [`${prefix}%`] });
+    res.json({ keys: result.rows.map(r => r.key) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -505,9 +493,9 @@ app.get('/api/storage', async (req, res) => {
 // GET single record
 app.get('/api/storage/:key', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT `value` FROM storage WHERE `key` = ?', [req.params.key]);
-    if (rows.length > 0) {
-      res.json(rows[0].value);
+    const result = await client.execute({ sql: 'SELECT `value` FROM storage WHERE `key` = ?', args: [req.params.key] });
+    if (result.rows.length > 0) {
+      res.json(result.rows[0].value);
     } else {
       res.status(404).json({ message: 'Not found' });
     }
@@ -525,14 +513,14 @@ app.post('/api/storage/:key', async (req, res) => {
     const query = `
       INSERT INTO storage (\`key\`, \`value\`)
       VALUES (?, ?)
-      ON DUPLICATE KEY UPDATE \`value\` = VALUES(\`value\`)
+      ON CONFLICT(\`key\`) DO UPDATE SET \`value\` = excluded.\`value\`
     `;
-    const [result] = await pool.query(query, [key, JSON.stringify(value)]);
+    const result = await client.execute({ sql: query, args: [key, JSON.stringify(value)] });
     
     // Sync to specialized table
     await syncToSpecializedTable(key, value);
     
-    res.json({ success: true, affectedRows: result.affectedRows });
+    res.json({ success: true, affectedRows: result.rowsAffected });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -543,12 +531,12 @@ app.post('/api/storage/:key', async (req, res) => {
 app.delete('/api/storage/:key', async (req, res) => {
   const key = req.params.key;
   try {
-    const [result] = await pool.query('DELETE FROM storage WHERE `key` = ?', [key]);
+    const result = await client.execute({ sql: 'DELETE FROM storage WHERE `key` = ?', args: [key] });
     
     // Sync to specialized table (delete)
     await syncToSpecializedTable(key, null, true);
     
-    res.json({ success: true, affectedRows: result.affectedRows });
+    res.json({ success: true, affectedRows: result.rowsAffected });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
@@ -574,8 +562,8 @@ app.post('/api/logs/login', async (req, res) => {
       INSERT INTO login_logs (userId, email, \`system\`, ipAddress, userAgent)
       VALUES (?, ?, ?, ?, ?)
     `;
-    const [result] = await pool.query(query, [userId || null, email, system, ipAddress, userAgent]);
-    res.status(201).json({ success: true, insertId: result.insertId });
+    const result = await client.execute({ sql: query, args: [userId || null, email, system, ipAddress, userAgent] });
+    res.status(201).json({ success: true, insertId: Number(result.lastInsertRowid) });
   } catch (err) {
     console.error('Error logging login:', err);
     res.status(500).json({ error: 'Failed to record login' });

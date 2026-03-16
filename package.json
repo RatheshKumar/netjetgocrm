@@ -4,6 +4,7 @@
   "private": true,
   "description": "NetJetGo CRM Platform",
   "dependencies": {
+    "@libsql/client": "^0.17.0",
     "cors": "^2.8.6",
     "express": "^4.19.2",
     "mysql2": "^3.9.7",
