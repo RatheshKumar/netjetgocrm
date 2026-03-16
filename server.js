@@ -20,7 +20,7 @@ app.use(express.json());
 import { createClient } from "@libsql/client";
 
 const client = createClient({
-  url: process.env.TURSO_DATABASE_URL,
+  url: process.env.TURSO_DATABASE_URL || 'libsql://database-cobalt-paddle-vercel-icfg-gnl4z0e3qpobxlg3ufhct9dw.aws-ap-south-1.turso.io',
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
