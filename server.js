@@ -4,6 +4,7 @@ const cors = require('cors');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const { v4: uuid } = require('uuid');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -12,6 +13,16 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Enhanced Request Logging
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url} - ${res.statusCode} (${duration}ms)`);
+  });
+  next();
+});
 
 // ===================================================
 // MySQL Connection Pool
@@ -195,7 +206,15 @@ function createHandlers(tableName, allowedCols) {
     },
     getOne: async (req, res) => {
       try {
-        const [rows] = await pool.query(`SELECT * FROM ${tableName} WHERE id = ?`, [req.params.id]);
+        const { id } = req.params;
+        // Support both UUID and email lookup for users
+        const query = tableName === 'crm_users' && id.includes('@') 
+          ? `SELECT * FROM ${tableName} WHERE email = ?`
+          : `SELECT * FROM ${tableName} WHERE id = ?`;
+
+        if (id.includes('@')) console.log(`[Lookup] Finding user by email: ${id}`);
+
+        const [rows] = await pool.query(query, [id]);
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
         res.json(rows[0]);
       } catch (err) {
@@ -234,8 +253,13 @@ function createHandlers(tableName, allowedCols) {
 
         if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
 
+        // Support both UUID and email for identification
+        const whereClause = tableName === 'crm_users' && id.includes('@') ? 'email = ?' : 'id = ?';
+        if (id.includes('@')) console.log(`[Update] Updating user by email: ${id}`);
+        
         values.push(id);
-        const sql = `UPDATE ${tableName} SET ${updates.join(', ')} WHERE id = ?`;
+
+        const sql = `UPDATE ${tableName} SET ${updates.join(', ')} WHERE ${whereClause}`;
         await pool.query(sql, values);
         res.json({ success: true });
       } catch (err) {
@@ -340,12 +364,30 @@ app.post('/api/logs/login', async (req, res) => {
   }
 });
 
-app.get('/', (req, res) => {
+// ===================================================
+// SERVE FRONTEND (Production)
+// ===================================================
+
+// Serve static files from the React build folder
+const buildPath = path.join(__dirname, 'build');
+app.use(express.static(buildPath));
+
+app.get('/api/status', (req, res) => {
   res.json({ status: '🚀 CRM Backend Running', engine: 'MySQL' });
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
-}
+// Handle React routing, return all requests to React app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
+});
+
+// START SERVER
+app.listen(PORT, () => {
+    console.log(`🚀 Unified Server Started!`);
+    console.log(`🌎 Access your CRM at: http://localhost:${PORT}`);
+    console.log(`📡 Backend API is active on the same port.`);
+    console.log(`📁 Serving frontend from: ${buildPath}`);
+    console.log('--------------------------------------------------');
+});
 
 module.exports = app;
