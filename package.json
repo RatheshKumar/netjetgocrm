@@ -2,22 +2,26 @@
   "name": "netjetgo-crm",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "NetJetGo CRM Platform",
   "dependencies": {
     "@libsql/client": "^0.17.0",
+    "bcrypt": "^5.1.1",
     "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
     "express": "^4.19.2",
     "mysql2": "^3.9.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.26.1",
     "react-scripts": "5.0.1",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "uuid": "^9.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "server": "node backend/server.js"
+    "server": "node server.js"
   },
   "proxy": "http://localhost:3001"
 }

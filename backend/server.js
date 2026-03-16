@@ -1,7 +1,12 @@
-const express = require('express');
-const cors = require('cors');
-const { createClient } = require('@libsql/client');
-require('dotenv').config();
+// server.js
+import express from 'express';
+import cors from 'cors';
+import { createClient } from '@libsql/client';
+import bcrypt from 'bcrypt';
+import { v4 as uuid } from 'uuid';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -14,153 +19,283 @@ app.use(express.json());
 // Turso / libSQL Connection
 // ===================================================
 const client = createClient({
-  url: process.env.TURSO_DATABASE_URL || 'file:./crm.db',
+  url: process.env.TURSO_DATABASE_URL || 'libsql://database-cobalt-paddle-vercel-icfg-gnl4z0e3qpobxlg3ufhct9dw.aws-ap-south-1.turso.io',
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-/**
- * Initialize all tables if they don't exist.
- * In a serverless environment, this runs on cold start.
- */
+// ===================================================
+// Initialize Tables
+// ===================================================
 async function initDB() {
   try {
     console.log('⏳ Initializing database tables...');
 
-    // Generic key-value storage
+    // Generic storage table (for ERP and other entities)
     await client.execute(`
       CREATE TABLE IF NOT EXISTS storage (
-        "key"    TEXT PRIMARY KEY,
-        "value"  TEXT NOT NULL,
+        "key" TEXT PRIMARY KEY,
+        "value" TEXT NOT NULL,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // CRM Tables
-    const crmTables = [
-      `CREATE TABLE IF NOT EXISTS crm_users (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password TEXT, role TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS companies (id TEXT PRIMARY KEY, name TEXT NOT NULL, industry TEXT, website TEXT, email TEXT, phone TEXT, address TEXT, size TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, phone TEXT, jobTitle TEXT, company TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS leads (id TEXT PRIMARY KEY, name TEXT NOT NULL, company TEXT, email TEXT, phone TEXT, status TEXT DEFAULT 'Pending', value DECIMAL(15,2) DEFAULT 0, owner TEXT, source TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS contracts (id TEXT PRIMARY KEY, title TEXT NOT NULL, client TEXT, type TEXT, status TEXT DEFAULT 'Draft', value DECIMAL(15,2) DEFAULT 0, startDate TEXT, endDate TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, invoiceNo TEXT, client TEXT, status TEXT DEFAULT 'Draft', amount DECIMAL(15,2) DEFAULT 0, dueDate TEXT, issuedDate TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, client TEXT, invoiceNo TEXT, amount DECIMAL(15,2) DEFAULT 0, method TEXT, date TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'Todo', priority TEXT DEFAULT 'Medium', dueDate TEXT, assignedTo TEXT, relatedTo TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS pipelines (id TEXT PRIMARY KEY, name TEXT NOT NULL, stage TEXT, status TEXT DEFAULT 'Active', value DECIMAL(15,2) DEFAULT 0, company TEXT, contact TEXT, owner TEXT, closeDate TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT, price DECIMAL(15,2) DEFAULT 0, description TEXT, sku TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, client TEXT, status TEXT DEFAULT 'Planning', startDate TEXT, endDate TEXT, budget DECIMAL(15,2), description TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS tickets (id TEXT PRIMARY KEY, subject TEXT NOT NULL, client TEXT, status TEXT DEFAULT 'Open', priority TEXT DEFAULT 'Normal', description TEXT, assignedTo TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`
-    ];
+    // Users table
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS crm_users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password TEXT,
+        role TEXT DEFAULT 'user',
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    // ERP Tables
-    const erpTables = [
-      `CREATE TABLE IF NOT EXISTS erp_users (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password TEXT, role TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS erp_inventory (id TEXT PRIMARY KEY, name TEXT NOT NULL, sku TEXT, category TEXT, description TEXT, costPrice DECIMAL(15,2) DEFAULT 0, sellingPrice DECIMAL(15,2) DEFAULT 0, stock INTEGER DEFAULT 0, lowStockThreshold INTEGER DEFAULT 5, unit TEXT DEFAULT 'pcs', supplier TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS erp_suppliers (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, phone TEXT, address TEXT, contactName TEXT, status TEXT DEFAULT 'Active', notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS erp_purchases (id TEXT PRIMARY KEY, poNumber TEXT, supplier TEXT, status TEXT DEFAULT 'Draft', totalAmount DECIMAL(15,2) DEFAULT 0, orderDate TEXT, expectedDate TEXT, items TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS erp_employees (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, phone TEXT, jobTitle TEXT, department TEXT, status TEXT DEFAULT 'Active', salary DECIMAL(15,2) DEFAULT 0, joinDate TEXT, address TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS erp_payroll (id TEXT PRIMARY KEY, employeeId TEXT, employeeName TEXT, month TEXT, basicSalary DECIMAL(15,2) DEFAULT 0, allowances DECIMAL(15,2) DEFAULT 0, deductions DECIMAL(15,2) DEFAULT 0, netPay DECIMAL(15,2) DEFAULT 0, status TEXT DEFAULT 'Pending', paymentMethod TEXT, paidOn TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
-      `CREATE TABLE IF NOT EXISTS erp_pos_sales (id TEXT PRIMARY KEY, saleNo TEXT, items TEXT, subtotal DECIMAL(15,2) DEFAULT 0, tax DECIMAL(15,2) DEFAULT 0, discount DECIMAL(15,2) DEFAULT 0, total DECIMAL(15,2) DEFAULT 0, paymentMethod TEXT, cashier TEXT, customerName TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`
-    ];
+    // Leads table
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS leads (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        company TEXT,
+        email TEXT,
+        phone TEXT,
+        status TEXT DEFAULT 'Pending',
+        value DECIMAL(15,2) DEFAULT 0,
+        owner TEXT,
+        source TEXT,
+        notes TEXT,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    // System Tables
-    const systemTables = [
-      `CREATE TABLE IF NOT EXISTS login_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, userId TEXT, email TEXT NOT NULL, system TEXT NOT NULL, ipAddress TEXT, userAgent TEXT, loginAt DATETIME DEFAULT CURRENT_TIMESTAMP)`
-    ];
+    // Contacts table
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS contacts (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        jobTitle TEXT,
+        company TEXT,
+        notes TEXT,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    for (const sql of [...crmTables, ...erpTables, ...systemTables]) {
-      await client.execute(sql);
-    }
+    // Companies table
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS companies (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        industry TEXT,
+        website TEXT,
+        email TEXT,
+        phone TEXT,
+        address TEXT,
+        size TEXT,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    console.log('✅ Database initialized successfully.');
+    // Login logs
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS login_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        userId TEXT,
+        email TEXT NOT NULL,
+        system TEXT NOT NULL,
+        ipAddress TEXT,
+        userAgent TEXT,
+        loginAt DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.log('✅ Tables initialized successfully.');
   } catch (err) {
     console.error('❌ Database initialization error:', err.message);
   }
 }
 
-// Global initialization
 initDB();
 
 // ===================================================
-// TABLE MAPPINGS for Synchronization
+// AUTH ROUTES
 // ===================================================
-const TABLE_MAPPING = {
-  'contacts:':     { table: 'contacts',      cols: ['id', 'name', 'email', 'phone', 'jobTitle', 'company', 'notes', 'createdAt', 'updatedAt'] },
-  'companies:':    { table: 'companies',     cols: ['id', 'name', 'industry', 'website', 'email', 'phone', 'address', 'size', 'createdAt', 'updatedAt'] },
-  'leads:':        { table: 'leads',         cols: ['id', 'name', 'company', 'email', 'phone', 'status', 'value', 'owner', 'source', 'notes', 'createdAt', 'updatedAt'] },
-  'contracts:':    { table: 'contracts',     cols: ['id', 'title', 'client', 'type', 'status', 'value', 'startDate', 'endDate', 'notes', 'createdAt', 'updatedAt'] },
-  'invoices:':     { table: 'invoices',      cols: ['id', 'invoiceNo', 'client', 'status', 'amount', 'dueDate', 'issuedDate', 'notes', 'createdAt', 'updatedAt'] },
-  'payments:':     { table: 'payments',      cols: ['id', 'client', 'invoiceNo', 'amount', 'method', 'date', 'notes', 'createdAt', 'updatedAt'] },
-  'tasks:':        { table: 'tasks',         cols: ['id', 'title', 'description', 'status', 'priority', 'dueDate', 'assignedTo', 'relatedTo', 'createdAt', 'updatedAt'] },
-  'pipelines:':    { table: 'pipelines',     cols: ['id', 'name', 'stage', 'status', 'value', 'company', 'contact', 'owner', 'closeDate', 'notes', 'createdAt', 'updatedAt'] },
-  'products:':     { table: 'products',      cols: ['id', 'name', 'category', 'price', 'description', 'sku', 'createdAt', 'updatedAt'] },
-  'projects:':     { table: 'projects',      cols: ['id', 'name', 'client', 'status', 'startDate', 'endDate', 'budget', 'description', 'createdAt', 'updatedAt'] },
-  'tickets:':      { table: 'tickets',       cols: ['id', 'subject', 'client', 'status', 'priority', 'description', 'assignedTo', 'createdAt', 'updatedAt'] },
-  'erp_inventory:':{ table: 'erp_inventory', cols: ['id', 'name', 'sku', 'category', 'description', 'costPrice', 'sellingPrice', 'stock', 'lowStockThreshold', 'unit', 'supplier', 'createdAt', 'updatedAt'] },
-  'erp_suppliers:':{ table: 'erp_suppliers', cols: ['id', 'name', 'email', 'phone', 'address', 'contactName', 'status', 'notes', 'createdAt', 'updatedAt'] },
-  'erp_purchases:':{ table: 'erp_purchases', cols: ['id', 'poNumber', 'supplier', 'status', 'totalAmount', 'orderDate', 'expectedDate', 'items', 'notes', 'createdAt', 'updatedAt'] },
-  'erp_employees:':{ table: 'erp_employees', cols: ['id', 'name', 'email', 'phone', 'jobTitle', 'department', 'status', 'salary', 'joinDate', 'address', 'createdAt', 'updatedAt'] },
-  'erp_payroll:':  { table: 'erp_payroll',   cols: ['id', 'employeeId', 'employeeName', 'month', 'basicSalary', 'allowances', 'deductions', 'netPay', 'status', 'paymentMethod', 'paidOn', 'createdAt', 'updatedAt'] },
-  'erp_pos_sales:':{ table: 'erp_pos_sales', cols: ['id', 'saleNo', 'items', 'subtotal', 'tax', 'discount', 'total', 'paymentMethod', 'cashier', 'customerName', 'createdAt'] },
-  'users:':        { table: 'crm_users',     cols: ['id', 'name', 'email', 'password', 'role', 'createdAt', 'updatedAt'] },
-  'erp_users:':    { table: 'erp_users',     cols: ['id', 'name', 'email', 'password', 'role', 'createdAt', 'updatedAt'] },
-};
 
-async function syncToSpecializedTable(key, value, isDelete = false) {
-  const prefix = Object.keys(TABLE_MAPPING).find(p => key.startsWith(p));
-  if (!prefix) return;
-
-  const { table, cols } = TABLE_MAPPING[prefix];
-  const id = key.replace(prefix, '');
-
-  if (isDelete) {
-    try {
-      await client.execute({ sql: `DELETE FROM ${table} WHERE id = ?`, args: [id] });
-    } catch (err) {
-      console.warn(`[sync] Delete failed for ${table}:`, err.message);
-    }
-    return;
-  }
-
+// Signup
+app.post('/api/users/signup', async (req, res) => {
   try {
-    const data = typeof value === 'string' ? JSON.parse(value) : value;
-    if (!data.id) data.id = id;
-    
-    // SQLite manual updatedAt update
-    data.updatedAt = new Date().toISOString();
+    const { name, email, password, role } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ error: 'Missing required fields' });
 
-    const validData = cols.reduce((acc, col) => {
-      if (data[col] !== undefined && data[col] !== null) {
-        acc[col] = (typeof data[col] === 'object') ? JSON.stringify(data[col]) : data[col];
-      }
-      return acc;
-    }, {});
-
-    const keys = Object.keys(validData);
-    if (keys.length === 0) return;
-
-    const placeholders = keys.map(() => '?').join(', ');
-    const updates = keys.map(k => `"${k}" = excluded."${k}"`).join(', ');
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const id = uuid();
 
     const sql = `
-      INSERT INTO ${table} (${keys.map(k => `"${k}"`).join(', ')})
-      VALUES (${placeholders})
-      ON CONFLICT(id) DO UPDATE SET ${updates}
+      INSERT INTO crm_users (id, name, email, password, role, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `;
-    
-    await client.execute({ sql, args: Object.values(validData) });
+    await client.execute({ sql, args: [id, name, email, hashedPassword, role || 'user'] });
+
+    res.status(201).json({ success: true, id, name, email, role: role || 'user' });
   } catch (err) {
-    console.warn(`[sync] Sync failed for ${table}:`, err.message);
+    if (err.message.includes('UNIQUE constraint failed')) {
+      return res.status(409).json({ error: 'Email already exists' });
+    }
+    res.status(500).json({ error: err.message });
   }
-}
+});
+
+// Login
+app.post('/api/users/login', async (req, res) => {
+  try {
+    const { email, password, system } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Missing email or password' });
+
+    const result = await client.execute({ sql: 'SELECT * FROM crm_users WHERE email = ?', args: [email] });
+    if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const user = result.rows[0];
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) return res.status(401).json({ error: 'Invalid credentials' });
+
+    // Log login
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const userAgent = req.get('User-Agent') || '';
+    await client.execute({
+      sql: 'INSERT INTO login_logs (userId, email, system, ipAddress, userAgent) VALUES (?, ?, ?, ?, ?)',
+      args: [user.id, email, system || 'web', ipAddress, userAgent],
+    });
+
+    res.json({ success: true, id: user.id, name: user.name, email: user.email, role: user.role });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ===================================================
-// API ROUTES
+// GENERIC CRUD HELPER
+// ===================================================
+const createHandlers = (tableName, allowedCols) => {
+  return {
+    getAll: async (req, res) => {
+      try {
+        const result = await client.execute(`SELECT * FROM ${tableName} ORDER BY createdAt DESC`);
+        res.json(result.rows);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+    getOne: async (req, res) => {
+      try {
+        const result = await client.execute({ sql: `SELECT * FROM ${tableName} WHERE id = ?`, args: [req.params.id] });
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        res.json(result.rows[0]);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+    create: async (req, res) => {
+      try {
+        const id = uuid();
+        const data = req.body;
+        const keys = ['id', ...allowedCols, 'createdAt', 'updatedAt'];
+        const placeholders = keys.map(() => '?').join(', ');
+        
+        const args = [id];
+        allowedCols.forEach(col => args.push(data[col] || null));
+        args.push(new Date().toISOString());
+        args.push(new Date().toISOString());
+
+        const sql = `INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders})`;
+        await client.execute({ sql, args });
+        res.status(201).json({ success: true, id });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+    update: async (req, res) => {
+      try {
+        const { id } = req.params;
+        const data = req.body;
+        const updates = [];
+        const args = [];
+
+        allowedCols.forEach(col => {
+          if (data[col] !== undefined) {
+            updates.push(`${col} = ?`);
+            args.push(data[col]);
+          }
+        });
+
+        if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+        updates.push(`updatedAt = ?`);
+        args.push(new Date().toISOString());
+        args.push(id);
+
+        const sql = `UPDATE ${tableName} SET ${updates.join(', ')} WHERE id = ?`;
+        await client.execute({ sql, args });
+        res.json({ success: true });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+    delete: async (req, res) => {
+      try {
+        await client.execute({ sql: `DELETE FROM ${tableName} WHERE id = ?`, args: [req.params.id] });
+        res.json({ success: true });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    }
+  };
+};
+
+// ===================================================
+// ENTITY ROUTES
 // ===================================================
 
-app.get('/', (req, res) => res.json({ status: '🚀 Cloud Backend Running', engine: 'libSQL/Turso' }));
+// Users
+const userHandlers = createHandlers('crm_users', ['name', 'email', 'role']);
+app.get('/api/users', userHandlers.getAll);
+app.get('/api/users/:id', userHandlers.getOne);
+app.put('/api/users/:id', userHandlers.update);
+app.delete('/api/users/:id', userHandlers.delete);
 
-// ── GENERIC STORAGE API ─────────────────────────────
-// GET all keys by prefix
+// Leads
+const leadHandlers = createHandlers('leads', ['name', 'company', 'email', 'phone', 'status', 'value', 'owner', 'source', 'notes']);
+app.get('/api/leads', leadHandlers.getAll);
+app.get('/api/leads/:id', leadHandlers.getOne);
+app.post('/api/leads', leadHandlers.create);
+app.put('/api/leads/:id', leadHandlers.update);
+app.delete('/api/leads/:id', leadHandlers.delete);
+
+// Contacts
+const contactHandlers = createHandlers('contacts', ['name', 'email', 'phone', 'jobTitle', 'company', 'notes']);
+app.get('/api/contacts', contactHandlers.getAll);
+app.get('/api/contacts/:id', contactHandlers.getOne);
+app.post('/api/contacts', contactHandlers.create);
+app.put('/api/contacts/:id', contactHandlers.update);
+app.delete('/api/contacts/:id', contactHandlers.delete);
+
+// Companies
+const companyHandlers = createHandlers('companies', ['name', 'industry', 'website', 'email', 'phone', 'address', 'size']);
+app.get('/api/companies', companyHandlers.getAll);
+app.get('/api/companies/:id', companyHandlers.getOne);
+app.post('/api/companies', companyHandlers.create);
+app.put('/api/companies/:id', companyHandlers.update);
+app.delete('/api/companies/:id', companyHandlers.delete);
+
+
+// ===================================================
+// GENERIC STORAGE API — Fallback for ERP & other entities
+// ===================================================
+
 app.get('/api/storage', async (req, res) => {
   const { prefix } = req.query;
   if (!prefix) return res.status(400).json({ error: 'Prefix required' });
@@ -172,7 +307,6 @@ app.get('/api/storage', async (req, res) => {
   }
 });
 
-// GET single record
 app.get('/api/storage/:key', async (req, res) => {
   try {
     const result = await client.execute({ sql: 'SELECT "value" FROM storage WHERE "key" = ?', args: [req.params.key] });
@@ -183,37 +317,33 @@ app.get('/api/storage/:key', async (req, res) => {
   }
 });
 
-// POST save record
 app.post('/api/storage/:key', async (req, res) => {
   const { key } = req.params;
   const value = req.body;
   try {
     const sql = `INSERT INTO storage ("key", "value") VALUES (?, ?) ON CONFLICT("key") DO UPDATE SET "value" = excluded."value"`;
     await client.execute({ sql, args: [key, JSON.stringify(value)] });
-    await syncToSpecializedTable(key, value);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE record
 app.delete('/api/storage/:key', async (req, res) => {
   const { key } = req.params;
   try {
     await client.execute({ sql: 'DELETE FROM storage WHERE "key" = ?', args: [key] });
-    await syncToSpecializedTable(key, null, true);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── LOGIN LOGS ────────────────────────────────────
+// ── LOGIN LOGS ─────────────────────────────────────
 app.post('/api/logs/login', async (req, res) => {
   const { userId, email, system } = req.body;
   const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const userAgent = req.get('User-Agent');
+  const userAgent = req.get('User-Agent') || '';
   try {
     const sql = `INSERT INTO login_logs (userId, email, system, ipAddress, userAgent) VALUES (?, ?, ?, ?, ?)`;
     const result = await client.execute({ sql, args: [userId || null, email, system, ipAddress, userAgent] });
@@ -224,10 +354,16 @@ app.post('/api/logs/login', async (req, res) => {
 });
 
 // ===================================================
-// Start Server
+// FINAL ROUTES
 // ===================================================
+
+app.get('/', (req, res) => {
+  res.json({ status: '🚀 CRM Backend Running', engine: 'libSQL/Turso' });
+});
+
+// START SERVER
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => console.log(`🚀 Local Server: http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
 }
 
-module.exports = app; // Required for Vercel
+export default app; // For Vercel
