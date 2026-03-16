@@ -411,10 +411,88 @@ app.get('/', (req, res) => {
 // Generic Storage API (used by frontend)
 // ===================================================
 
+const TABLE_MAPPING = {
+  'contacts:': { table: 'contacts', columns: ['id', 'name', 'email', 'phone', 'jobTitle', 'company', 'notes', 'createdAt', 'updatedAt'] },
+  'companies:': { table: 'companies', columns: ['id', 'name', 'industry', 'website', 'email', 'phone', 'address', 'size', 'createdAt', 'updatedAt'] },
+  'leads:': { table: 'leads', columns: ['id', 'name', 'company', 'email', 'phone', 'status', 'value', 'owner', 'source', 'notes', 'createdAt', 'updatedAt'] },
+  'contracts:': { table: 'contracts', columns: ['id', 'title', 'client', 'type', 'status', 'value', 'startDate', 'endDate', 'notes', 'createdAt', 'updatedAt'] },
+  'invoices:': { table: 'invoices', columns: ['id', 'invoiceNo', 'client', 'status', 'amount', 'dueDate', 'issuedDate', 'notes', 'createdAt', 'updatedAt'] },
+  'payments:': { table: 'payments', columns: ['id', 'client', 'invoiceNo', 'amount', 'method', 'date', 'notes', 'createdAt', 'updatedAt'] },
+  'tasks:': { table: 'tasks', columns: ['id', 'title', 'description', 'status', 'priority', 'dueDate', 'assignedTo', 'relatedTo', 'createdAt', 'updatedAt'] },
+  'pipelines:': { table: 'pipelines', columns: ['id', 'name', 'stage', 'status', 'value', 'company', 'contact', 'owner', 'closeDate', 'notes', 'createdAt', 'updatedAt'] },
+  'products:': { table: 'products', columns: ['id', 'name', 'category', 'price', 'description', 'sku', 'createdAt', 'updatedAt'] },
+  'projects:': { table: 'projects', columns: ['id', 'name', 'client', 'status', 'startDate', 'endDate', 'budget', 'description', 'createdAt', 'updatedAt'] },
+  'tickets:': { table: 'tickets', columns: ['id', 'subject', 'client', 'status', 'priority', 'description', 'assignedTo', 'createdAt', 'updatedAt'] },
+  'erp_users:': { table: 'erp_users', columns: ['id', 'name', 'email', 'password', 'role', 'createdAt', 'updatedAt'] },
+  'erp_inventory:': { table: 'erp_inventory', columns: ['id', 'name', 'sku', 'category', 'description', 'costPrice', 'sellingPrice', 'stock', 'lowStockThreshold', 'unit', 'supplier', 'createdAt', 'updatedAt'] },
+  'erp_suppliers:': { table: 'erp_suppliers', columns: ['id', 'name', 'email', 'phone', 'address', 'contactName', 'status', 'notes', 'createdAt', 'updatedAt'] },
+  'erp_purchases:': { table: 'erp_purchases', columns: ['id', 'poNumber', 'supplier', 'status', 'totalAmount', 'orderDate', 'expectedDate', 'items', 'notes', 'createdAt', 'updatedAt'] },
+  'erp_employees:': { table: 'erp_employees', columns: ['id', 'name', 'email', 'phone', 'jobTitle', 'department', 'status', 'salary', 'joinDate', 'address', 'createdAt', 'updatedAt'] },
+  'erp_payroll:': { table: 'erp_payroll', columns: ['id', 'employeeId', 'employeeName', 'month', 'basicSalary', 'allowances', 'deductions', 'netPay', 'status', 'paymentMethod', 'paidOn', 'createdAt', 'updatedAt'] },
+  'erp_pos_sales:': { table: 'erp_pos_sales', columns: ['id', 'saleNo', 'items', 'subtotal', 'tax', 'discount', 'total', 'paymentMethod', 'cashier', 'customerName', 'createdAt'] },
+  'users:': { table: 'crm_users', columns: ['id', 'name', 'email', 'password', 'role', 'createdAt', 'updatedAt'] },
+};
+
+async function syncToSpecializedTable(key, value, isDelete = false) {
+  const prefix = Object.keys(TABLE_MAPPING).find(p => key.startsWith(p));
+  console.log(`[syncToSpecializedTable] Key: ${key}, matched prefix: ${prefix}`);
+  if (!prefix) return;
+
+  const { table, columns } = TABLE_MAPPING[prefix];
+  const id = key.replace(prefix, '');
+  console.log(`[syncToSpecializedTable] Table: ${table}, ID: ${id}, isDelete: ${isDelete}`);
+
+  if (isDelete) {
+    try {
+      await pool.query(`DELETE FROM ${table} WHERE id = ?`, [id]);
+    } catch (err) {
+      console.warn(`[syncToSpecializedTable] Delete failed for ${table}:`, err.message);
+    }
+    return;
+  }
+
+  try {
+    const data = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!data.id) data.id = id;
+
+    const validData = columns.reduce((acc, col) => {
+      if (data[col] !== undefined && data[col] !== null) {
+        if (typeof data[col] === 'object') {
+          acc[col] = JSON.stringify(data[col]);
+        } else {
+          acc[col] = data[col];
+        }
+      }
+      return acc;
+    }, {});
+
+    const keys = Object.keys(validData);
+    console.log(`[syncToSpecializedTable] Data keys to sync: ${keys.join(', ')}`);
+    if (keys.length === 0) return;
+
+    const placeholders = keys.map(() => '?').join(', ');
+    const updates = keys.map(k => `\`${k}\` = VALUES(\`${k}\`)`).join(', ');
+
+    const query = `
+      INSERT INTO ${table} (${keys.map(k => `\`${k}\``).join(', ')})
+      VALUES (${placeholders})
+      ON DUPLICATE KEY UPDATE ${updates}
+    `;
+    
+    await pool.query(query, Object.values(validData));
+    console.log(`[syncToSpecializedTable] Successfully synced to ${table}`);
+  } catch (err) {
+    console.warn(`[syncToSpecializedTable] Sync failed for ${table}:`, err.message);
+  }
+}
+
 // GET keys by prefix
 app.get('/api/storage', async (req, res) => {
   const prefix = req.query.prefix;
   if (!prefix) return res.status(400).json({ error: 'Prefix is required' });
+  
+  // Optimization: If it's a specialized table, we can list keys from there too.
+  // But for now, keeping it simple and reading from 'storage' table for consistency.
   try {
     const [rows] = await pool.query('SELECT `key` FROM storage WHERE `key` LIKE ?', [`${prefix}%`]);
     res.json({ keys: rows.map(r => r.key) });
@@ -450,6 +528,10 @@ app.post('/api/storage/:key', async (req, res) => {
       ON DUPLICATE KEY UPDATE \`value\` = VALUES(\`value\`)
     `;
     const [result] = await pool.query(query, [key, JSON.stringify(value)]);
+    
+    // Sync to specialized table
+    await syncToSpecializedTable(key, value);
+    
     res.json({ success: true, affectedRows: result.affectedRows });
   } catch (err) {
     console.error(err);
@@ -459,8 +541,13 @@ app.post('/api/storage/:key', async (req, res) => {
 
 // DELETE record
 app.delete('/api/storage/:key', async (req, res) => {
+  const key = req.params.key;
   try {
-    const [result] = await pool.query('DELETE FROM storage WHERE `key` = ?', [req.params.key]);
+    const [result] = await pool.query('DELETE FROM storage WHERE `key` = ?', [key]);
+    
+    // Sync to specialized table (delete)
+    await syncToSpecializedTable(key, null, true);
+    
     res.json({ success: true, affectedRows: result.affectedRows });
   } catch (err) {
     console.error(err);
