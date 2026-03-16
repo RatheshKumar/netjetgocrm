@@ -1,12 +1,10 @@
-// server.js
-import express from 'express';
-import cors from 'cors';
-import { createClient } from '@libsql/client';
-import bcrypt from 'bcrypt';
-import { v4 as uuid } from 'uuid';
-import dotenv from 'dotenv';
-
-dotenv.config();
+// server.js — CommonJS (required for react-scripts + Vercel)
+const express = require('express');
+const cors = require('cors');
+const { createClient } = require('@libsql/client');
+const bcrypt = require('bcrypt');
+const { v4: uuid } = require('uuid');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -19,8 +17,8 @@ app.use(express.json());
 // Turso / libSQL Connection
 // ===================================================
 const client = createClient({
-  url: process.env.TURSO_DATABASE_URL || 'libsql://database-cobalt-paddle-vercel-icfg-gnl4z0e3qpobxlg3ufhct9dw.aws-ap-south-1.turso.io',
-  authToken: process.env.TURSO_AUTH_TOKEN,
+  url: process.env.TURSO_DATABASE_URL || 'file:./crm.db',
+  authToken: process.env.TURSO_AUTH_TOKEN || undefined,
 });
 
 // ===================================================
@@ -30,7 +28,7 @@ async function initDB() {
   try {
     console.log('⏳ Initializing database tables...');
 
-    // Generic storage table (for ERP and other entities)
+    // Generic storage table (fallback for ERP entities)
     await client.execute(`
       CREATE TABLE IF NOT EXISTS storage (
         "key" TEXT PRIMARY KEY,
@@ -163,7 +161,6 @@ app.post('/api/users/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: 'Invalid credentials' });
 
-    // Log login
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const userAgent = req.get('User-Agent') || '';
     await client.execute({
@@ -180,7 +177,7 @@ app.post('/api/users/login', async (req, res) => {
 // ===================================================
 // GENERIC CRUD HELPER
 // ===================================================
-const createHandlers = (tableName, allowedCols) => {
+function createHandlers(tableName, allowedCols) {
   return {
     getAll: async (req, res) => {
       try {
@@ -203,14 +200,14 @@ const createHandlers = (tableName, allowedCols) => {
       try {
         const id = uuid();
         const data = req.body;
-        const keys = ['id', ...allowedCols, 'createdAt', 'updatedAt'];
-        const placeholders = keys.map(() => '?').join(', ');
-        
-        const args = [id];
-        allowedCols.forEach(col => args.push(data[col] || null));
-        args.push(new Date().toISOString());
-        args.push(new Date().toISOString());
+        const now = new Date().toISOString();
 
+        const keys = ['id', ...allowedCols, 'createdAt', 'updatedAt'];
+        const args = [id];
+        allowedCols.forEach(col => args.push(data[col] !== undefined ? data[col] : null));
+        args.push(now, now);
+
+        const placeholders = keys.map(() => '?').join(', ');
         const sql = `INSERT INTO ${tableName} (${keys.join(', ')}) VALUES (${placeholders})`;
         await client.execute({ sql, args });
         res.status(201).json({ success: true, id });
@@ -234,9 +231,8 @@ const createHandlers = (tableName, allowedCols) => {
 
         if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
 
-        updates.push(`updatedAt = ?`);
-        args.push(new Date().toISOString());
-        args.push(id);
+        updates.push('updatedAt = ?');
+        args.push(new Date().toISOString(), id);
 
         const sql = `UPDATE ${tableName} SET ${updates.join(', ')} WHERE id = ?`;
         await client.execute({ sql, args });
@@ -252,9 +248,9 @@ const createHandlers = (tableName, allowedCols) => {
       } catch (err) {
         res.status(500).json({ error: err.message });
       }
-    }
+    },
   };
-};
+}
 
 // ===================================================
 // ENTITY ROUTES
@@ -290,7 +286,6 @@ app.get('/api/companies/:id', companyHandlers.getOne);
 app.post('/api/companies', companyHandlers.create);
 app.put('/api/companies/:id', companyHandlers.update);
 app.delete('/api/companies/:id', companyHandlers.delete);
-
 
 // ===================================================
 // GENERIC STORAGE API — Fallback for ERP & other entities
@@ -339,7 +334,7 @@ app.delete('/api/storage/:key', async (req, res) => {
   }
 });
 
-// ── LOGIN LOGS ─────────────────────────────────────
+// Login logs (called by frontend AuthContext)
 app.post('/api/logs/login', async (req, res) => {
   const { userId, email, system } = req.body;
   const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -354,16 +349,15 @@ app.post('/api/logs/login', async (req, res) => {
 });
 
 // ===================================================
-// FINAL ROUTES
+// ROOT & SERVER
 // ===================================================
 
 app.get('/', (req, res) => {
   res.json({ status: '🚀 CRM Backend Running', engine: 'libSQL/Turso' });
 });
 
-// START SERVER
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
 }
 
-export default app; // For Vercel
+module.exports = app; // Required for Vercel
