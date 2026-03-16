@@ -108,13 +108,13 @@ async function initDB() {
     // Login logs
     await pool.query(`
       CREATE TABLE IF NOT EXISTS login_logs (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        userId VARCHAR(255),
-        email VARCHAR(255) NOT NULL,
-        system VARCHAR(100) NOT NULL,
-        ipAddress VARCHAR(100),
-        userAgent TEXT,
-        loginAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+        \`userId\` VARCHAR(255),
+        \`email\` VARCHAR(255) NOT NULL,
+        \`system\` VARCHAR(100) NOT NULL,
+        \`ipAddress\` VARCHAR(100),
+        \`userAgent\` TEXT,
+        \`loginAt\` DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -170,7 +170,7 @@ app.post('/api/users/login', async (req, res) => {
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const userAgent = req.get('User-Agent') || '';
     await pool.query(
-      'INSERT INTO login_logs (userId, email, system, ipAddress, userAgent) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO login_logs (`userId`, `email`, `system`, `ipAddress`, `userAgent`) VALUES (?, ?, ?, ?, ?)',
       [user.id, email, system || 'web', ipAddress, userAgent]
     );
 
@@ -332,7 +332,7 @@ app.post('/api/logs/login', async (req, res) => {
   const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const userAgent = req.get('User-Agent') || '';
   try {
-    const sql = `INSERT INTO login_logs (userId, email, system, ipAddress, userAgent) VALUES (?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO login_logs (\`userId\`, \`email\`, \`system\`, \`ipAddress\`, \`userAgent\`) VALUES (?, ?, ?, ?, ?)`;
     await pool.query(sql, [userId || null, email, system, ipAddress, userAgent]);
     res.status(201).json({ success: true });
   } catch (err) {
