@@ -1,4 +1,21 @@
 {
+<<<<<<< HEAD
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "mysql2": "^3.19.0"
+  }
+=======
   "name": "netjetgo-crm",
   "version": "1.0.0",
   "private": true,
@@ -39,4 +56,5 @@
     ]
   },
   "proxy": "http://localhost:3001"
+>>>>>>> f1c7d5f13290c874c289933bf22ff1d79b4c9ad1
 }
