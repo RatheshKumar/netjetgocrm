@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@libsql/client');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -9,432 +10,113 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// MySQL connection configuration
-// libSQL connection configuration
-let client;
+// ===================================================
+// Turso / libSQL Connection
+// ===================================================
+const client = createClient({
+  url: process.env.TURSO_DATABASE_URL || 'file:./crm.db',
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
 
-// ===================================================
-// Initialize Database & Tables
-// ===================================================
+/**
+ * Initialize all tables if they don't exist.
+ * In a serverless environment, this runs on cold start.
+ */
 async function initDB() {
   try {
-    client = createClient({
-      url: process.env.TURSO_DATABASE_URL || 'file:./crm.db',
-      authToken: process.env.TURSO_AUTH_TOKEN,
-    });
-    console.log('✅ Database connected.');
+    console.log('⏳ Initializing database tables...');
 
-    // ── Generic key-value storage (used by frontend storage.js) ──────────────
+    // Generic key-value storage
     await client.execute(`
       CREATE TABLE IF NOT EXISTS storage (
-        \`key\`    VARCHAR(255) PRIMARY KEY,
-        \`value\`  JSON         NOT NULL,
-        createdAt DATETIME     DEFAULT CURRENT_TIMESTAMP
+        "key"    TEXT PRIMARY KEY,
+        "value"  TEXT NOT NULL,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('✅ Table: storage');
 
-    // ── CRM: Users ────────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS crm_users (
-        id        VARCHAR(36)  PRIMARY KEY,
-        name      VARCHAR(255) NOT NULL,
-        email     VARCHAR(255) NOT NULL UNIQUE,
-        password  VARCHAR(255),
-        role      VARCHAR(100),
-        createdAt DATETIME     DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME     DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: crm_users');
+    // CRM Tables
+    const crmTables = [
+      `CREATE TABLE IF NOT EXISTS crm_users (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password TEXT, role TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS companies (id TEXT PRIMARY KEY, name TEXT NOT NULL, industry TEXT, website TEXT, email TEXT, phone TEXT, address TEXT, size TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, phone TEXT, jobTitle TEXT, company TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS leads (id TEXT PRIMARY KEY, name TEXT NOT NULL, company TEXT, email TEXT, phone TEXT, status TEXT DEFAULT 'Pending', value DECIMAL(15,2) DEFAULT 0, owner TEXT, source TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS contracts (id TEXT PRIMARY KEY, title TEXT NOT NULL, client TEXT, type TEXT, status TEXT DEFAULT 'Draft', value DECIMAL(15,2) DEFAULT 0, startDate TEXT, endDate TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, invoiceNo TEXT, client TEXT, status TEXT DEFAULT 'Draft', amount DECIMAL(15,2) DEFAULT 0, dueDate TEXT, issuedDate TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, client TEXT, invoiceNo TEXT, amount DECIMAL(15,2) DEFAULT 0, method TEXT, date TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'Todo', priority TEXT DEFAULT 'Medium', dueDate TEXT, assignedTo TEXT, relatedTo TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS pipelines (id TEXT PRIMARY KEY, name TEXT NOT NULL, stage TEXT, status TEXT DEFAULT 'Active', value DECIMAL(15,2) DEFAULT 0, company TEXT, contact TEXT, owner TEXT, closeDate TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT, price DECIMAL(15,2) DEFAULT 0, description TEXT, sku TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, client TEXT, status TEXT DEFAULT 'Planning', startDate TEXT, endDate TEXT, budget DECIMAL(15,2), description TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS tickets (id TEXT PRIMARY KEY, subject TEXT NOT NULL, client TEXT, status TEXT DEFAULT 'Open', priority TEXT DEFAULT 'Normal', description TEXT, assignedTo TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`
+    ];
 
-    // ── CRM: Companies ────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS companies (
-        id        VARCHAR(36)  PRIMARY KEY,
-        name      VARCHAR(255) NOT NULL,
-        industry  VARCHAR(100),
-        website   VARCHAR(255),
-        email     VARCHAR(255),
-        phone     VARCHAR(50),
-        address   TEXT,
-        size      VARCHAR(50),
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: companies');
+    // ERP Tables
+    const erpTables = [
+      `CREATE TABLE IF NOT EXISTS erp_users (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password TEXT, role TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS erp_inventory (id TEXT PRIMARY KEY, name TEXT NOT NULL, sku TEXT, category TEXT, description TEXT, costPrice DECIMAL(15,2) DEFAULT 0, sellingPrice DECIMAL(15,2) DEFAULT 0, stock INTEGER DEFAULT 0, lowStockThreshold INTEGER DEFAULT 5, unit TEXT DEFAULT 'pcs', supplier TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS erp_suppliers (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, phone TEXT, address TEXT, contactName TEXT, status TEXT DEFAULT 'Active', notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS erp_purchases (id TEXT PRIMARY KEY, poNumber TEXT, supplier TEXT, status TEXT DEFAULT 'Draft', totalAmount DECIMAL(15,2) DEFAULT 0, orderDate TEXT, expectedDate TEXT, items TEXT, notes TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS erp_employees (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, phone TEXT, jobTitle TEXT, department TEXT, status TEXT DEFAULT 'Active', salary DECIMAL(15,2) DEFAULT 0, joinDate TEXT, address TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS erp_payroll (id TEXT PRIMARY KEY, employeeId TEXT, employeeName TEXT, month TEXT, basicSalary DECIMAL(15,2) DEFAULT 0, allowances DECIMAL(15,2) DEFAULT 0, deductions DECIMAL(15,2) DEFAULT 0, netPay DECIMAL(15,2) DEFAULT 0, status TEXT DEFAULT 'Pending', paymentMethod TEXT, paidOn TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP)`,
+      `CREATE TABLE IF NOT EXISTS erp_pos_sales (id TEXT PRIMARY KEY, saleNo TEXT, items TEXT, subtotal DECIMAL(15,2) DEFAULT 0, tax DECIMAL(15,2) DEFAULT 0, discount DECIMAL(15,2) DEFAULT 0, total DECIMAL(15,2) DEFAULT 0, paymentMethod TEXT, cashier TEXT, customerName TEXT, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP)`
+    ];
 
-    // ── CRM: Contacts ─────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS contacts (
-        id        VARCHAR(36)  PRIMARY KEY,
-        name      VARCHAR(255) NOT NULL,
-        email     VARCHAR(255),
-        phone     VARCHAR(50),
-        jobTitle  VARCHAR(150),
-        company   VARCHAR(255),
-        notes     TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: contacts');
+    // System Tables
+    const systemTables = [
+      `CREATE TABLE IF NOT EXISTS login_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, userId TEXT, email TEXT NOT NULL, system TEXT NOT NULL, ipAddress TEXT, userAgent TEXT, loginAt DATETIME DEFAULT CURRENT_TIMESTAMP)`
+    ];
 
-    // ── CRM: Leads ────────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS leads (
-        id        VARCHAR(36)   PRIMARY KEY,
-        name      VARCHAR(255)  NOT NULL,
-        company   VARCHAR(255),
-        email     VARCHAR(255),
-        phone     VARCHAR(50),
-        status    VARCHAR(50)   DEFAULT 'Pending',
-        value     DECIMAL(15,2) DEFAULT 0,
-        owner     VARCHAR(255),
-        source    VARCHAR(100),
-        notes     TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: leads');
+    for (const sql of [...crmTables, ...erpTables, ...systemTables]) {
+      await client.execute(sql);
+    }
 
-    // ── CRM: Contracts ────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS contracts (
-        id           VARCHAR(36)   PRIMARY KEY,
-        title        VARCHAR(255)  NOT NULL,
-        client       VARCHAR(255),
-        type         VARCHAR(100),
-        status       VARCHAR(50)   DEFAULT 'Draft',
-        value        DECIMAL(15,2) DEFAULT 0,
-        startDate    DATE,
-        endDate      DATE,
-        notes        TEXT,
-        createdAt    DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt    DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: contracts');
-
-    // ── CRM: Invoices ─────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS invoices (
-        id          VARCHAR(36)   PRIMARY KEY,
-        invoiceNo   VARCHAR(100),
-        client      VARCHAR(255),
-        status      VARCHAR(50)   DEFAULT 'Draft',
-        amount      DECIMAL(15,2) DEFAULT 0,
-        dueDate     DATE,
-        issuedDate  DATE,
-        notes       TEXT,
-        createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: invoices');
-
-    // ── CRM: Payments ─────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS payments (
-        id        VARCHAR(36)   PRIMARY KEY,
-        client    VARCHAR(255),
-        invoiceNo VARCHAR(100),
-        amount    DECIMAL(15,2) DEFAULT 0,
-        method    VARCHAR(100),
-        date      DATE,
-        notes     TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: payments');
-
-    // ── CRM: Tasks ────────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS tasks (
-        id          VARCHAR(36)  PRIMARY KEY,
-        title       VARCHAR(255) NOT NULL,
-        description TEXT,
-        status      VARCHAR(50)  DEFAULT 'Todo',
-        priority    VARCHAR(50)  DEFAULT 'Medium',
-        dueDate     DATE,
-        assignedTo  VARCHAR(255),
-        relatedTo   VARCHAR(255),
-        createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: tasks');
-
-    // ── CRM: Pipeline ─────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS pipelines (
-        id        VARCHAR(36)   PRIMARY KEY,
-        name      VARCHAR(255)  NOT NULL,
-        stage     VARCHAR(100),
-        status    VARCHAR(50)   DEFAULT 'Active',
-        value     DECIMAL(15,2) DEFAULT 0,
-        company   VARCHAR(255),
-        contact   VARCHAR(255),
-        owner     VARCHAR(255),
-        closeDate DATE,
-        notes     TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: pipelines');
-
-    // ── CRM: Products ─────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS products (
-        id          VARCHAR(36)   PRIMARY KEY,
-        name        VARCHAR(255)  NOT NULL,
-        category    VARCHAR(100),
-        price       DECIMAL(15,2) DEFAULT 0,
-        description TEXT,
-        sku         VARCHAR(100),
-        createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: products');
-
-    // ── CRM: Projects ─────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS projects (
-        id          VARCHAR(36)  PRIMARY KEY,
-        name        VARCHAR(255) NOT NULL,
-        client      VARCHAR(255),
-        status      VARCHAR(50)  DEFAULT 'Planning',
-        startDate   DATE,
-        endDate     DATE,
-        budget      DECIMAL(15,2),
-        description TEXT,
-        createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: projects');
-
-    // ── CRM: Tickets ──────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS tickets (
-        id          VARCHAR(36)  PRIMARY KEY,
-        subject     VARCHAR(255) NOT NULL,
-        client      VARCHAR(255),
-        status      VARCHAR(50)  DEFAULT 'Open',
-        priority    VARCHAR(50)  DEFAULT 'Normal',
-        description TEXT,
-        assignedTo  VARCHAR(255),
-        createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: tickets');
-
-    // ── ERP: Users ────────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS erp_users (
-        id        VARCHAR(36)  PRIMARY KEY,
-        name      VARCHAR(255) NOT NULL,
-        email     VARCHAR(255) NOT NULL UNIQUE,
-        password  VARCHAR(255),
-        role      VARCHAR(100),
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: erp_users');
-
-    // ── ERP: Inventory ────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS erp_inventory (
-        id                VARCHAR(36)   PRIMARY KEY,
-        name              VARCHAR(255)  NOT NULL,
-        sku               VARCHAR(100),
-        category          VARCHAR(100),
-        description       TEXT,
-        costPrice         DECIMAL(15,2) DEFAULT 0,
-        sellingPrice      DECIMAL(15,2) DEFAULT 0,
-        stock             INT           DEFAULT 0,
-        lowStockThreshold INT           DEFAULT 5,
-        unit              VARCHAR(50)   DEFAULT 'pcs',
-        supplier          VARCHAR(255),
-        createdAt         DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt         DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: erp_inventory');
-
-    // ── ERP: Suppliers ────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS erp_suppliers (
-        id          VARCHAR(36)  PRIMARY KEY,
-        name        VARCHAR(255) NOT NULL,
-        email       VARCHAR(255),
-        phone       VARCHAR(50),
-        address     TEXT,
-        contactName VARCHAR(255),
-        status      VARCHAR(50)  DEFAULT 'Active',
-        notes       TEXT,
-        createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: erp_suppliers');
-
-    // ── ERP: Purchases ────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS erp_purchases (
-        id           VARCHAR(36)   PRIMARY KEY,
-        poNumber     VARCHAR(100),
-        supplier     VARCHAR(255),
-        status       VARCHAR(50)   DEFAULT 'Draft',
-        totalAmount  DECIMAL(15,2) DEFAULT 0,
-        orderDate    DATE,
-        expectedDate DATE,
-        items        JSON,
-        notes        TEXT,
-        createdAt    DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt    DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: erp_purchases');
-
-    // ── ERP: Employees ────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS erp_employees (
-        id          VARCHAR(36)  PRIMARY KEY,
-        name        VARCHAR(255) NOT NULL,
-        email       VARCHAR(255),
-        phone       VARCHAR(50),
-        jobTitle    VARCHAR(150),
-        department  VARCHAR(100),
-        status      VARCHAR(50)  DEFAULT 'Active',
-        salary      DECIMAL(15,2) DEFAULT 0,
-        joinDate    DATE,
-        address     TEXT,
-        createdAt   DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt   DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: erp_employees');
-
-    // ── ERP: Payroll ──────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS erp_payroll (
-        id            VARCHAR(36)   PRIMARY KEY,
-        employeeId    VARCHAR(36),
-        employeeName  VARCHAR(255),
-        month         VARCHAR(20),
-        basicSalary   DECIMAL(15,2) DEFAULT 0,
-        allowances    DECIMAL(15,2) DEFAULT 0,
-        deductions    DECIMAL(15,2) DEFAULT 0,
-        netPay        DECIMAL(15,2) DEFAULT 0,
-        status        VARCHAR(50)   DEFAULT 'Pending',
-        paymentMethod VARCHAR(100),
-        paidOn        DATE,
-        createdAt     DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: erp_payroll');
-
-    // ── ERP: POS Sales ────────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS erp_pos_sales (
-        id            VARCHAR(36)   PRIMARY KEY,
-        saleNo        VARCHAR(100),
-        items         JSON,
-        subtotal      DECIMAL(15,2) DEFAULT 0,
-        tax           DECIMAL(15,2) DEFAULT 0,
-        discount      DECIMAL(15,2) DEFAULT 0,
-        total         DECIMAL(15,2) DEFAULT 0,
-        paymentMethod VARCHAR(100),
-        cashier       VARCHAR(255),
-        customerName  VARCHAR(255),
-        createdAt     DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: erp_pos_sales');
-
-    // ── System: Login Logs ────────────────────────────────────────────────────
-    await client.execute(`
-      CREATE TABLE IF NOT EXISTS login_logs (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        userId      VARCHAR(36),
-        email       VARCHAR(255) NOT NULL,
-        \`system\`      VARCHAR(50)  NOT NULL, 
-        ipAddress   VARCHAR(45),
-        userAgent   TEXT,
-        loginAt     DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('✅ Table: login_logs');
-
-    console.log('\n🎉 All tables initialized successfully in netjetgocrm_db!');
-
+    console.log('✅ Database initialized successfully.');
   } catch (err) {
     console.error('❌ Database initialization error:', err.message);
-    process.exit(1);
   }
 }
 
+// Global initialization
 initDB();
 
-
 // ===================================================
-// Root route
+// TABLE MAPPINGS for Synchronization
 // ===================================================
-
-app.get('/', (req, res) => {
-  res.send('🚀 NetJetGo CRM Backend Running');
-});
-
-
-// ===================================================
-// Generic Storage API (used by frontend)
-// ===================================================
-
 const TABLE_MAPPING = {
-  'contacts:': { table: 'contacts', columns: ['id', 'name', 'email', 'phone', 'jobTitle', 'company', 'notes', 'createdAt', 'updatedAt'] },
-  'companies:': { table: 'companies', columns: ['id', 'name', 'industry', 'website', 'email', 'phone', 'address', 'size', 'createdAt', 'updatedAt'] },
-  'leads:': { table: 'leads', columns: ['id', 'name', 'company', 'email', 'phone', 'status', 'value', 'owner', 'source', 'notes', 'createdAt', 'updatedAt'] },
-  'contracts:': { table: 'contracts', columns: ['id', 'title', 'client', 'type', 'status', 'value', 'startDate', 'endDate', 'notes', 'createdAt', 'updatedAt'] },
-  'invoices:': { table: 'invoices', columns: ['id', 'invoiceNo', 'client', 'status', 'amount', 'dueDate', 'issuedDate', 'notes', 'createdAt', 'updatedAt'] },
-  'payments:': { table: 'payments', columns: ['id', 'client', 'invoiceNo', 'amount', 'method', 'date', 'notes', 'createdAt', 'updatedAt'] },
-  'tasks:': { table: 'tasks', columns: ['id', 'title', 'description', 'status', 'priority', 'dueDate', 'assignedTo', 'relatedTo', 'createdAt', 'updatedAt'] },
-  'pipelines:': { table: 'pipelines', columns: ['id', 'name', 'stage', 'status', 'value', 'company', 'contact', 'owner', 'closeDate', 'notes', 'createdAt', 'updatedAt'] },
-  'products:': { table: 'products', columns: ['id', 'name', 'category', 'price', 'description', 'sku', 'createdAt', 'updatedAt'] },
-  'projects:': { table: 'projects', columns: ['id', 'name', 'client', 'status', 'startDate', 'endDate', 'budget', 'description', 'createdAt', 'updatedAt'] },
-  'tickets:': { table: 'tickets', columns: ['id', 'subject', 'client', 'status', 'priority', 'description', 'assignedTo', 'createdAt', 'updatedAt'] },
-  'erp_users:': { table: 'erp_users', columns: ['id', 'name', 'email', 'password', 'role', 'createdAt', 'updatedAt'] },
-  'erp_inventory:': { table: 'erp_inventory', columns: ['id', 'name', 'sku', 'category', 'description', 'costPrice', 'sellingPrice', 'stock', 'lowStockThreshold', 'unit', 'supplier', 'createdAt', 'updatedAt'] },
-  'erp_suppliers:': { table: 'erp_suppliers', columns: ['id', 'name', 'email', 'phone', 'address', 'contactName', 'status', 'notes', 'createdAt', 'updatedAt'] },
-  'erp_purchases:': { table: 'erp_purchases', columns: ['id', 'poNumber', 'supplier', 'status', 'totalAmount', 'orderDate', 'expectedDate', 'items', 'notes', 'createdAt', 'updatedAt'] },
-  'erp_employees:': { table: 'erp_employees', columns: ['id', 'name', 'email', 'phone', 'jobTitle', 'department', 'status', 'salary', 'joinDate', 'address', 'createdAt', 'updatedAt'] },
-  'erp_payroll:': { table: 'erp_payroll', columns: ['id', 'employeeId', 'employeeName', 'month', 'basicSalary', 'allowances', 'deductions', 'netPay', 'status', 'paymentMethod', 'paidOn', 'createdAt', 'updatedAt'] },
-  'erp_pos_sales:': { table: 'erp_pos_sales', columns: ['id', 'saleNo', 'items', 'subtotal', 'tax', 'discount', 'total', 'paymentMethod', 'cashier', 'customerName', 'createdAt'] },
-  'users:': { table: 'crm_users', columns: ['id', 'name', 'email', 'password', 'role', 'createdAt', 'updatedAt'] },
+  'contacts:':     { table: 'contacts',      cols: ['id', 'name', 'email', 'phone', 'jobTitle', 'company', 'notes', 'createdAt', 'updatedAt'] },
+  'companies:':    { table: 'companies',     cols: ['id', 'name', 'industry', 'website', 'email', 'phone', 'address', 'size', 'createdAt', 'updatedAt'] },
+  'leads:':        { table: 'leads',         cols: ['id', 'name', 'company', 'email', 'phone', 'status', 'value', 'owner', 'source', 'notes', 'createdAt', 'updatedAt'] },
+  'contracts:':    { table: 'contracts',     cols: ['id', 'title', 'client', 'type', 'status', 'value', 'startDate', 'endDate', 'notes', 'createdAt', 'updatedAt'] },
+  'invoices:':     { table: 'invoices',      cols: ['id', 'invoiceNo', 'client', 'status', 'amount', 'dueDate', 'issuedDate', 'notes', 'createdAt', 'updatedAt'] },
+  'payments:':     { table: 'payments',      cols: ['id', 'client', 'invoiceNo', 'amount', 'method', 'date', 'notes', 'createdAt', 'updatedAt'] },
+  'tasks:':        { table: 'tasks',         cols: ['id', 'title', 'description', 'status', 'priority', 'dueDate', 'assignedTo', 'relatedTo', 'createdAt', 'updatedAt'] },
+  'pipelines:':    { table: 'pipelines',     cols: ['id', 'name', 'stage', 'status', 'value', 'company', 'contact', 'owner', 'closeDate', 'notes', 'createdAt', 'updatedAt'] },
+  'products:':     { table: 'products',      cols: ['id', 'name', 'category', 'price', 'description', 'sku', 'createdAt', 'updatedAt'] },
+  'projects:':     { table: 'projects',      cols: ['id', 'name', 'client', 'status', 'startDate', 'endDate', 'budget', 'description', 'createdAt', 'updatedAt'] },
+  'tickets:':      { table: 'tickets',       cols: ['id', 'subject', 'client', 'status', 'priority', 'description', 'assignedTo', 'createdAt', 'updatedAt'] },
+  'erp_inventory:':{ table: 'erp_inventory', cols: ['id', 'name', 'sku', 'category', 'description', 'costPrice', 'sellingPrice', 'stock', 'lowStockThreshold', 'unit', 'supplier', 'createdAt', 'updatedAt'] },
+  'erp_suppliers:':{ table: 'erp_suppliers', cols: ['id', 'name', 'email', 'phone', 'address', 'contactName', 'status', 'notes', 'createdAt', 'updatedAt'] },
+  'erp_purchases:':{ table: 'erp_purchases', cols: ['id', 'poNumber', 'supplier', 'status', 'totalAmount', 'orderDate', 'expectedDate', 'items', 'notes', 'createdAt', 'updatedAt'] },
+  'erp_employees:':{ table: 'erp_employees', cols: ['id', 'name', 'email', 'phone', 'jobTitle', 'department', 'status', 'salary', 'joinDate', 'address', 'createdAt', 'updatedAt'] },
+  'erp_payroll:':  { table: 'erp_payroll',   cols: ['id', 'employeeId', 'employeeName', 'month', 'basicSalary', 'allowances', 'deductions', 'netPay', 'status', 'paymentMethod', 'paidOn', 'createdAt', 'updatedAt'] },
+  'erp_pos_sales:':{ table: 'erp_pos_sales', cols: ['id', 'saleNo', 'items', 'subtotal', 'tax', 'discount', 'total', 'paymentMethod', 'cashier', 'customerName', 'createdAt'] },
+  'users:':        { table: 'crm_users',     cols: ['id', 'name', 'email', 'password', 'role', 'createdAt', 'updatedAt'] },
+  'erp_users:':    { table: 'erp_users',     cols: ['id', 'name', 'email', 'password', 'role', 'createdAt', 'updatedAt'] },
 };
 
 async function syncToSpecializedTable(key, value, isDelete = false) {
   const prefix = Object.keys(TABLE_MAPPING).find(p => key.startsWith(p));
-  console.log(`[syncToSpecializedTable] Key: ${key}, matched prefix: ${prefix}`);
   if (!prefix) return;
 
-  const { table, columns } = TABLE_MAPPING[prefix];
+  const { table, cols } = TABLE_MAPPING[prefix];
   const id = key.replace(prefix, '');
-  console.log(`[syncToSpecializedTable] Table: ${table}, ID: ${id}, isDelete: ${isDelete}`);
 
   if (isDelete) {
     try {
-      await client.execute(`DELETE FROM ${table} WHERE id = ?`, [id]);
+      await client.execute({ sql: `DELETE FROM ${table} WHERE id = ?`, args: [id] });
     } catch (err) {
-      console.warn(`[syncToSpecializedTable] Delete failed for ${table}:`, err.message);
+      console.warn(`[sync] Delete failed for ${table}:`, err.message);
     }
     return;
   }
@@ -442,138 +124,110 @@ async function syncToSpecializedTable(key, value, isDelete = false) {
   try {
     const data = typeof value === 'string' ? JSON.parse(value) : value;
     if (!data.id) data.id = id;
+    
+    // SQLite manual updatedAt update
+    data.updatedAt = new Date().toISOString();
 
-    const validData = columns.reduce((acc, col) => {
+    const validData = cols.reduce((acc, col) => {
       if (data[col] !== undefined && data[col] !== null) {
-        if (typeof data[col] === 'object') {
-          acc[col] = JSON.stringify(data[col]);
-        } else {
-          acc[col] = data[col];
-        }
+        acc[col] = (typeof data[col] === 'object') ? JSON.stringify(data[col]) : data[col];
       }
       return acc;
     }, {});
 
     const keys = Object.keys(validData);
-    console.log(`[syncToSpecializedTable] Data keys to sync: ${keys.join(', ')}`);
     if (keys.length === 0) return;
 
     const placeholders = keys.map(() => '?').join(', ');
-    const updates = keys.map(k => `\`${k}\` = excluded.\`${k}\``).join(', ');
+    const updates = keys.map(k => `"${k}" = excluded."${k}"`).join(', ');
 
-    const query = `
-      INSERT INTO ${table} (${keys.map(k => `\`${k}\``).join(', ')})
+    const sql = `
+      INSERT INTO ${table} (${keys.map(k => `"${k}"`).join(', ')})
       VALUES (${placeholders})
       ON CONFLICT(id) DO UPDATE SET ${updates}
     `;
     
-    await client.execute({ sql: query, args: Object.values(validData) });
-    console.log(`[syncToSpecializedTable] Successfully synced to ${table}`);
+    await client.execute({ sql, args: Object.values(validData) });
   } catch (err) {
-    console.warn(`[syncToSpecializedTable] Sync failed for ${table}:`, err.message);
+    console.warn(`[sync] Sync failed for ${table}:`, err.message);
   }
 }
 
-// GET keys by prefix
+// ===================================================
+// API ROUTES
+// ===================================================
+
+app.get('/', (req, res) => res.json({ status: '🚀 Cloud Backend Running', engine: 'libSQL/Turso' }));
+
+// ── GENERIC STORAGE API ─────────────────────────────
+// GET all keys by prefix
 app.get('/api/storage', async (req, res) => {
-  const prefix = req.query.prefix;
-  if (!prefix) return res.status(400).json({ error: 'Prefix is required' });
-  
-  // Optimization: If it's a specialized table, we can list keys from there too.
-  // But for now, keeping it simple and reading from 'storage' table for consistency.
+  const { prefix } = req.query;
+  if (!prefix) return res.status(400).json({ error: 'Prefix required' });
   try {
-    const result = await client.execute({ sql: 'SELECT `key` FROM storage WHERE `key` LIKE ?', args: [`${prefix}%`] });
+    const result = await client.execute({ sql: 'SELECT "key" FROM storage WHERE "key" LIKE ?', args: [`${prefix}%`] });
     res.json({ keys: result.rows.map(r => r.key) });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: err.message });
   }
 });
 
 // GET single record
 app.get('/api/storage/:key', async (req, res) => {
   try {
-    const result = await client.execute({ sql: 'SELECT `value` FROM storage WHERE `key` = ?', args: [req.params.key] });
-    if (result.rows.length > 0) {
-      res.json(result.rows[0].value);
-    } else {
-      res.status(404).json({ message: 'Not found' });
-    }
+    const result = await client.execute({ sql: 'SELECT "value" FROM storage WHERE "key" = ?', args: [req.params.key] });
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+    res.json(JSON.parse(result.rows[0].value));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// POST create or update
+// POST save record
 app.post('/api/storage/:key', async (req, res) => {
-  const key = req.params.key;
+  const { key } = req.params;
   const value = req.body;
   try {
-    const query = `
-      INSERT INTO storage (\`key\`, \`value\`)
-      VALUES (?, ?)
-      ON CONFLICT(\`key\`) DO UPDATE SET \`value\` = excluded.\`value\`
-    `;
-    const result = await client.execute({ sql: query, args: [key, JSON.stringify(value)] });
-    
-    // Sync to specialized table
+    const sql = `INSERT INTO storage ("key", "value") VALUES (?, ?) ON CONFLICT("key") DO UPDATE SET "value" = excluded."value"`;
+    await client.execute({ sql, args: [key, JSON.stringify(value)] });
     await syncToSpecializedTable(key, value);
-    
-    res.json({ success: true, affectedRows: result.rowsAffected });
+    res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: err.message });
   }
 });
 
 // DELETE record
 app.delete('/api/storage/:key', async (req, res) => {
-  const key = req.params.key;
+  const { key } = req.params;
   try {
-    const result = await client.execute({ sql: 'DELETE FROM storage WHERE `key` = ?', args: [key] });
-    
-    // Sync to specialized table (delete)
+    await client.execute({ sql: 'DELETE FROM storage WHERE "key" = ?', args: [key] });
     await syncToSpecializedTable(key, null, true);
-    
-    res.json({ success: true, affectedRows: result.rowsAffected });
+    res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: err.message });
   }
 });
 
-
-// ===================================================
-// Logs API
-// ===================================================
-
+// ── LOGIN LOGS ────────────────────────────────────
 app.post('/api/logs/login', async (req, res) => {
   const { userId, email, system } = req.body;
-  const ipAddress = req.ip || req.connection.remoteAddress;
+  const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const userAgent = req.get('User-Agent');
-
-  if (!email || !system) {
-    return res.status(400).json({ error: 'Email and system are required' });
-  }
-
   try {
-    const query = `
-      INSERT INTO login_logs (userId, email, \`system\`, ipAddress, userAgent)
-      VALUES (?, ?, ?, ?, ?)
-    `;
-    const result = await client.execute({ sql: query, args: [userId || null, email, system, ipAddress, userAgent] });
-    res.status(201).json({ success: true, insertId: Number(result.lastInsertRowid) });
+    const sql = `INSERT INTO login_logs (userId, email, system, ipAddress, userAgent) VALUES (?, ?, ?, ?, ?)`;
+    const result = await client.execute({ sql, args: [userId || null, email, system, ipAddress, userAgent] });
+    res.status(201).json({ success: true, id: Number(result.lastInsertRowid) });
   } catch (err) {
-    console.error('Error logging login:', err);
-    res.status(500).json({ error: 'Failed to record login' });
+    res.status(500).json({ error: err.message });
   }
 });
 
+// ===================================================
+// Start Server
+// ===================================================
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => console.log(`🚀 Local Server: http://localhost:${PORT}`));
+}
 
-// ===================================================
-// Start server
-// ===================================================
-app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-});
+module.exports = app; // Required for Vercel
