@@ -373,6 +373,20 @@ async function initDB() {
     `);
     console.log('✅ Table: erp_pos_sales');
 
+    // ── System: Login Logs ────────────────────────────────────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS login_logs (
+        id          INT AUTO_INCREMENT PRIMARY KEY,
+        userId      VARCHAR(36),
+        email       VARCHAR(255) NOT NULL,
+        \`system\`      VARCHAR(50)  NOT NULL, 
+        ipAddress   VARCHAR(45),
+        userAgent   TEXT,
+        loginAt     DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ Table: login_logs');
+
     console.log('\n🎉 All tables initialized successfully in netjetgocrm_db!');
 
   } catch (err) {
@@ -451,6 +465,33 @@ app.delete('/api/storage/:key', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
+  }
+});
+
+
+// ===================================================
+// Logs API
+// ===================================================
+
+app.post('/api/logs/login', async (req, res) => {
+  const { userId, email, system } = req.body;
+  const ipAddress = req.ip || req.connection.remoteAddress;
+  const userAgent = req.get('User-Agent');
+
+  if (!email || !system) {
+    return res.status(400).json({ error: 'Email and system are required' });
+  }
+
+  try {
+    const query = `
+      INSERT INTO login_logs (userId, email, \`system\`, ipAddress, userAgent)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    const [result] = await pool.query(query, [userId || null, email, system, ipAddress, userAgent]);
+    res.status(201).json({ success: true, insertId: result.insertId });
+  } catch (err) {
+    console.error('Error logging login:', err);
+    res.status(500).json({ error: 'Failed to record login' });
   }
 });
 

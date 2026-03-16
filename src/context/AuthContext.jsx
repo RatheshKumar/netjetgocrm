@@ -58,6 +58,22 @@ export function AuthProvider({ children }) {
 
     await storage.save(DB_KEYS.SESSION, { email: cleanEmail, loginAt: new Date().toISOString() });
     setUser(savedUser);
+
+    // Record login in database
+    try {
+      await fetch('http://localhost:3001/api/logs/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: savedUser.id,
+          email: savedUser.email,
+          system: requiredRole === 'admin' ? 'admin' : 'crm'
+        })
+      });
+    } catch (err) {
+      console.error('Failed to log login event:', err);
+    }
+
     return { ok: true };
   };
 
@@ -100,6 +116,22 @@ export function AuthProvider({ children }) {
 
     await storage.save(DB_KEYS.ERP_SESSION, { email: cleanEmail, loginAt: new Date().toISOString() });
     setErpUser(savedUser);
+
+    // Record login in database
+    try {
+      await fetch('http://localhost:3001/api/logs/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: savedUser.id,
+          email: savedUser.email,
+          system: 'erp'
+        })
+      });
+    } catch (err) {
+      console.error('Failed to log ERP login event:', err);
+    }
+
     return { ok: true };
   };
 
