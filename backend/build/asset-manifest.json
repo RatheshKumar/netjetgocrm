@@ -1,0 +1,12 @@
+{
+  "files": {
+    "main.js": "/static/js/main.ccea3c60.js",
+    "static/media/logo-dark.png": "/static/media/logo-dark.0d5dd7236aa0031753c7.png",
+    "static/media/logo-light.png": "/static/media/logo-light.4b9c3ec4bfbc7ee526ca.png",
+    "index.html": "/index.html",
+    "main.ccea3c60.js.map": "/static/js/main.ccea3c60.js.map"
+  },
+  "entrypoints": [
+    "static/js/main.ccea3c60.js"
+  ]
+}
