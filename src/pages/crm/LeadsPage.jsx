@@ -1,5 +1,5 @@
 // src/pages/crm/LeadsPage.jsx (Modular Update)
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import theme from '../../config/theme';
 import PageHeader from '../../components/ui/PageHeader';
 import StatCard from '../../components/ui/StatCard';
@@ -20,7 +20,7 @@ export default function LeadsPage() {
 
   const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
-  const fetchLeads = () => {
+  const fetchLeads = useCallback(() => {
     setLoading(true);
     fetch(`${API_BASE}/api/crm/leads`, {
        headers: { 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}` }
@@ -31,11 +31,11 @@ export default function LeadsPage() {
       setLoading(false);
     })
     .catch(() => setLoading(false));
-  };
+  }, [API_BASE]);
 
   useEffect(() => {
     fetchLeads();
-  }, []);
+  }, [fetchLeads]);
 
   const handleSave = async () => {
     if (!form.name) return alert('Name is required');

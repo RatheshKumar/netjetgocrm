@@ -33,7 +33,6 @@ import DiscussionRoomPage from './pages/collaboration/DiscussionRoomPage';
 import KnowledgeBasePage from './pages/collaboration/KnowledgeBasePage';
 import AnnouncementsPage from './pages/collaboration/AnnouncementsPage';
 
-import ReportsPage from './pages/ReportsPage';
 
 const T = theme;
 

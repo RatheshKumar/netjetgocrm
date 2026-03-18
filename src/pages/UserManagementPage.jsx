@@ -2,25 +2,21 @@
 import React, { useState, useEffect } from 'react';
 import theme from '../config/theme';
 import PageHeader from '../components/ui/PageHeader';
-import { useAuth } from '../context/AuthContext';
 
 const T = theme;
 
-export default function UserManagementPage() {
-  const { user } = useAuth();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
-  const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+export default function UserManagementPage() {
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/auth/users`)
       .then(res => res.json())
       .then(data => {
         setUsers(Array.isArray(data) ? data : []);
-        setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {});
   }, []);
 
   const roles = ['Admin', 'Sales Rep', 'Sales Manager', 'Account Manager', 'Business Developer', 'CEO / Founder', 'Operations', 'HR', 'Employee'];

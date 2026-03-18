@@ -1,7 +1,7 @@
 // src/pages/crm/MarketingPage.jsx
 import React, { useState } from 'react';
 import theme from '../../config/theme';
-import { DB_KEYS, OPTIONS } from '../../config/db';
+import { DB_KEYS } from '../../config/db';
 import useDB from '../../hooks/useDB';
 import PageHeader from '../../components/ui/PageHeader';
 import Modal from '../../components/ui/Modal';

@@ -3,7 +3,6 @@
 // =============================================================================
 import React, { useState } from 'react';
 import theme from '../config/theme';
-import { OPTIONS } from '../config/db';
 import { useAuth } from '../context/AuthContext';
 import logoLight from '../assets/logo-light.png';
 import logoDark  from '../assets/logo-dark.png';
@@ -145,7 +144,6 @@ function SignupPage({ onGoLogin }) {
 const T2 = theme;
 
 const labelStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: T2.text.muted, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' };
-const selectStyle = { width: '100%', padding: '11px 13px', border: `1.5px solid ${T2.border.light}`, borderRadius: T2.radius.md, fontSize: 13, color: T2.text.primary, background: '#fff', outline: 'none', appearance: 'none', boxSizing: 'border-box', fontFamily: 'inherit' };
 const submitBtn = (disabled) => ({ width: '100%', padding: '12px 0', background: disabled ? T2.text.muted : `linear-gradient(135deg,${T2.brand.indigo},${T2.brand.indigoMid})`, color: '#fff', border: 'none', borderRadius: T2.radius.md, fontSize: 14, fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(61,59,175,0.28)' });
 
 function Field({ label, error, ...props }) {
