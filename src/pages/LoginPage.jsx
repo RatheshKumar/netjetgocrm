@@ -21,7 +21,7 @@ function LoginPage({ onGoSignup }) {
     setError('');
     if (!form.email || !form.password) { setError('Please fill in all fields.'); return; }
     setLoading(true);
-    const res = await login(form.email, form.password, 'user');
+    const res = await login(form.email, form.password);
     if (!res.ok) setError(res.error);
     setLoading(false);
   };
@@ -41,15 +41,15 @@ function LoginPage({ onGoSignup }) {
         {/* Content */}
         <img src={logoDark} alt="NetJetGo" style={{ width: 200, height: 'auto', marginBottom: 32, position: 'relative', zIndex: 1 }} />
         <h2 style={{ color: '#fff', fontSize: 24, fontWeight: 800, textAlign: 'center', marginBottom: 12, letterSpacing: '-0.02em', position: 'relative', zIndex: 1 }}>
-          Your Sales CRM,<br />Supercharged
+          Unified Business OS
         </h2>
         <p style={{ color: T.text.onBrandMuted, fontSize: 13, textAlign: 'center', lineHeight: 1.75, maxWidth: 280, position: 'relative', zIndex: 1 }}>
-          Manage contacts, leads, invoices and pipelines — all in one powerful platform.
+          CRM, ERP, and HRM integrated into one seamless platform.
         </p>
 
         {/* Feature pills */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 32, justifyContent: 'center', position: 'relative', zIndex: 1 }}>
-          {['📈 Lead Tracking', '🏢 Company CRM', '🧾 Invoicing', '✅ Tasks'].map(f => (
+          {['🏬 Multi-Module', '👤 Role-Based', '📊 Integrated Data', '🚀 Scalable'].map(f => (
             <span key={f} style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', borderRadius: 20, padding: '5px 13px', fontSize: 12, fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)' }}>{f}</span>
           ))}
         </div>
@@ -116,12 +116,6 @@ function LoginPage({ onGoSignup }) {
             <button onClick={onGoSignup} style={{ background: 'none', border: 'none', color: T.brand.indigo, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>
               Create one →
             </button>
-          </div>
-
-          <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13 }}>
-            <a href="/erp" style={{ color: T.brand.indigo, textDecoration: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <span>🏪</span> Go to ERP Portal →
-            </a>
           </div>
         </div>
       </div>

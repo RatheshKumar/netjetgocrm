@@ -18,6 +18,7 @@ import EmployeesPage    from '../pages/erp/EmployeesPage';
 import PayrollPage      from '../pages/erp/PayrollPage';
 import ERPReportsPage   from '../pages/erp/ERPReportsPage';
 import ERPSettingsPage  from '../pages/erp/ERPSettingsPage';
+import ERPTicketsPage  from '../pages/erp/ERPTicketsPage';
 
 const T = theme;
 
@@ -47,6 +48,7 @@ function ERPShell() {
     'erp-payroll':    <PayrollPage />,
     'erp-reports':    <ERPReportsPage />,
     'erp-settings':   <ERPSettingsPage />,
+    'erp-tickets':    <ERPTicketsPage />,
   };
 
   return (
@@ -61,7 +63,7 @@ function ERPShell() {
       {/* Main content area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <ERPTopbar activePage={activePage} />
-        <main style={{ flex: 1, overflowY: 'auto', padding: 24, background: T.surface.page }}>
+        <main style={{ flex: 1, overflowY: 'auto', padding: 28, background: T.surface.page }}>
           {pages[activePage] || <div style={{ color: T.text.muted, padding: 40 }}>Page not found.</div>}
         </main>
       </div>

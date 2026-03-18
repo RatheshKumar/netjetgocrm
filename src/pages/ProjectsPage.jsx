@@ -15,8 +15,11 @@ import { required } from '../utils/validators';
 const T = theme;
 const DEFAULT_FORM = { name: '', clientId: '', status: '', deadline: '', budget: '', notes: '' };
 
-function ProjectsPage({ companies = [] }) {
-  const { items: projects, loading, add, update, remove } = useDB(DB_KEYS.PROJECTS);
+function ProjectsPage() {
+  const { items: projects, loading: projLoading, add, update, remove } = useDB(DB_KEYS.PROJECTS);
+  const { items: companies } = useDB(DB_KEYS.COMPANIES);
+  
+  const loading = projLoading;
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);

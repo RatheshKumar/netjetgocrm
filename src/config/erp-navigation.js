@@ -17,6 +17,7 @@ const erpNavigation = [
 
   { id: 'erp-reports',    label: 'Reports',     icon: '📊', section: 'analytics' },
   { id: 'erp-settings',   label: 'Settings',    icon: '⚙️', section: 'system' },
+  { id: 'erp-tickets',    label: 'Support Tickets', icon: '🎫', section: 'system' },
 ];
 
 export default erpNavigation;

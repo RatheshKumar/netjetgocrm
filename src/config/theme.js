@@ -21,7 +21,8 @@ const theme = {
     page:       '#F4F5FB',   // Page background
     card:       '#FFFFFF',   // Cards, tables, modals
     cardHover:  '#F8F9FE',   // Card hover state
-    sidebar:    '#3D3BAF',   // Sidebar background
+    sidebar:    '#3D3BAF',   // Main brand color for sidebar
+    sidebarAlpha: 'rgba(255,255,255,0.1)',
   },
 
   // ── Border Colors ───────────────────────────────────────────────────────────

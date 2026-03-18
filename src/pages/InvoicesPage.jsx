@@ -18,8 +18,12 @@ import { required } from '../utils/validators';
 const T = theme;
 const DEFAULT_FORM = { client:'', project:'', amount:'', paidAmount:'0', dueDate:'', status:'Unpaid', notes:'' };
 
-function InvoicesPage({ companies, contacts }) {
-  const { items: invoices, loading, add, update, remove } = useDB(DB_KEYS.INVOICES);
+function InvoicesPage() {
+  const { items: invoices, loading: invLoading, add, update, remove } = useDB(DB_KEYS.INVOICES);
+  const { items: companies } = useDB(DB_KEYS.COMPANIES);
+  const { items: contacts }  = useDB(DB_KEYS.CONTACTS);
+  
+  const loading = invLoading;
   const [search, setSearch]     = useState('');
   const [modal, setModal]       = useState(false);
   const [editItem, setEditItem] = useState(null);

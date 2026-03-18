@@ -13,21 +13,6 @@
 //   other      → /api/storage (generic fallback)
 // =============================================================================
 
-// Map of storage key prefixes → REST base paths
-const REST_MAP = {
-  'contacts:':   '/api/contacts',
-  'leads:':      '/api/leads',
-  'companies:':  '/api/companies',
-  'users:':      '/api/users',
-};
-
-function getEndpoint(key) {
-  const prefix = Object.keys(REST_MAP).find(p => key.startsWith(p));
-  if (!prefix) return null;
-  const id = key.slice(prefix.length);
-  return { base: REST_MAP[prefix], id };
-}
-
 const storage = {
   /**
    * Get a single record by its full key (e.g. "contacts:abc123")
@@ -35,17 +20,15 @@ const storage = {
    */
   async get(key) {
     try {
-      const ep = getEndpoint(key);
-      if (!ep) {
-        // generic fallback
-        const r = await fetch(`/api/storage/${key}`);
-        if (!r.ok) return null;
-        const data = await r.json();
-        return data ? (data.value ? JSON.parse(data.value) : data) : null;
-      }
-      const r = await fetch(`${ep.base}/${ep.id}`);
+      const r = await fetch(`/api/storage/${key}`);
       if (!r.ok) return null;
-      return await r.json();
+      const data = await r.json();
+      // If the value is a stringified JSON (from the SQL storage table), parse it.
+      // Otherwise return as is.
+      if (data && data.value && typeof data.value === 'string' && (data.value.startsWith('{') || data.value.startsWith('['))) {
+        return JSON.parse(data.value);
+      }
+      return data;
     } catch (err) {
       console.warn(`[storage.get] Failed for "${key}":`, err);
       return null;
@@ -54,40 +37,15 @@ const storage = {
 
   /**
    * Save (create or update) a record.
-   * @param {string} key  - "contacts:abc123"
-   * @param {object} data - The data object to save
    */
   async save(key, data) {
     try {
-      const ep = getEndpoint(key);
-      if (!ep) {
-        // generic fallback
-        const r = await fetch(`/api/storage/${key}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        });
-        return r.ok;
-      }
-
-      // Try PUT first (update), fallback to POST (create)
-      const putRes = await fetch(`${ep.base}/${ep.id}`, {
-        method: 'PUT',
+      const r = await fetch(`/api/storage/${key}`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-
-      if (!putRes.ok) {
-        // Record may not exist yet → create it
-        const postRes = await fetch(ep.base, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...data, id: ep.id }),
-        });
-        return postRes.ok;
-      }
-
-      return putRes.ok;
+      return r.ok;
     } catch (err) {
       console.error(`[storage.save] Failed for "${key}":`, err);
       return false;
@@ -99,12 +57,7 @@ const storage = {
    */
   async remove(key) {
     try {
-      const ep = getEndpoint(key);
-      if (!ep) {
-        const r = await fetch(`/api/storage/${key}`, { method: 'DELETE' });
-        return r.ok;
-      }
-      const r = await fetch(`${ep.base}/${ep.id}`, { method: 'DELETE' });
+      const r = await fetch(`/api/storage/${key}`, { method: 'DELETE' });
       return r.ok;
     } catch (err) {
       console.error(`[storage.remove] Failed for "${key}":`, err);
@@ -119,15 +72,6 @@ const storage = {
    */
   async getAll(prefix) {
     try {
-      const base = REST_MAP[prefix];
-
-      if (base) {
-        const r = await fetch(base);
-        if (!r.ok) return [];
-        const data = await r.json();
-        return Array.isArray(data) ? data : [];
-      }
-
       // Generic fallback
       const r = await fetch(`/api/storage?prefix=${prefix}`);
       if (!r.ok) return [];

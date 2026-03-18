@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import theme from '../../config/theme';
 import { DB_KEYS } from '../../config/db';
 import useDB from '../../hooks/useDB';
+import PageHeader from '../../components/ui/PageHeader';
 
 const T = theme;
 const labelStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: T.text.muted, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' };
@@ -93,7 +94,7 @@ function RunPayrollModal({ onClose, onSave, employees }) {
 
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
             <button onClick={onClose} style={{ flex: 1, padding: '10px 0', background: '#fff', border: `1.5px solid ${T.border.light}`, borderRadius: T.radius.md, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: T.text.muted }}>Cancel</button>
-            <button onClick={() => onSave({ month, year, lines, total, status: 'Pending' })} style={{ flex: 2, padding: '10px 0', background: `linear-gradient(135deg,${T.brand.indigo},${T.brand.indigoMid})`, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={() => onSave({ month, year, lines, total, status: 'Pending' })} style={{ flex: 2, padding: '10px 0', background: T.brand.indigo, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               Generate Payroll
             </button>
           </div>
@@ -119,13 +120,11 @@ export default function PayrollPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: T.text.primary }}>Payroll</h2>
-          <p style={{ color: T.text.muted, fontSize: 12, marginTop: 2 }}>{items.length} payroll runs · ₹{items.filter(p => p.status === 'Paid').reduce((s, p) => s + (p.total || 0), 0).toLocaleString('en-IN')} paid total</p>
-        </div>
-        <button onClick={() => setModal(true)} style={{ padding: '9px 18px', background: `linear-gradient(135deg,${T.brand.indigo},${T.brand.indigoMid})`, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Run Payroll</button>
-      </div>
+      <PageHeader
+        title="Payroll"
+        subtitle={`${items.length} payroll runs · ₹${items.filter(p => p.status === 'Paid').reduce((s, p) => s + (p.total || 0), 0).toLocaleString('en-IN')} paid total`}
+        right={<button onClick={() => setModal(true)} style={{ padding: '9px 18px', background: T.brand.indigo, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Run Payroll</button>}
+      />
 
       <div style={{ background: T.surface.card, borderRadius: T.radius.lg, border: `1px solid ${T.border.light}`, overflow: 'hidden' }}>
         {loading ? (

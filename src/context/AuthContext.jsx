@@ -9,10 +9,10 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import storage from '../utils/storage';
-import { generateId, getInitials } from '../utils/formatters';
 import { DB_KEYS } from '../config/db';
 
 const AuthContext = createContext(null);
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 // ─── Provider ────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }) {
@@ -20,150 +20,73 @@ export function AuthProvider({ children }) {
   const [erpUser, setErpUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On app load: restore both CRM and ERP sessions from storage
+  // On app load: restore session from storage
   useEffect(() => {
     (async () => {
-      // CRM session
       const session = await storage.get(DB_KEYS.SESSION);
-      if (session?.email) {
-        const savedUser = await storage.get(`${DB_KEYS.USERS}${session.email}`);
-        if (savedUser) setUser(savedUser);
-      }
-      // ERP session
-      const erpSession = await storage.get(DB_KEYS.ERP_SESSION);
-      if (erpSession?.email) {
-        const savedErpUser = await storage.get(`${DB_KEYS.ERP_USERS}${erpSession.email}`);
-        if (savedErpUser) setErpUser(savedErpUser);
+      if (session?.token && session?.user) {
+        setUser(session.user);
+        setErpUser(session.user); // Unified session
       }
       setLoading(false);
     })();
   }, []);
 
-  // ── CRM Login ──────────────────────────────────────────────────────────────
-  const login = async (email, password, requiredRole = null) => {
-    const cleanEmail = email.toLowerCase().trim();
-    const savedUser  = await storage.get(`${DB_KEYS.USERS}${cleanEmail}`);
-
-    if (!savedUser) return { ok: false, error: 'No account found with this email.' };
-    if (savedUser.password !== password) return { ok: false, error: 'Incorrect password.' };
-
-    const isAdmin = savedUser.role === 'Admin' || savedUser.role === 'Administrator';
-
-    // Role-based logic can still exist if needed, but we don't block login here anymore
-    // to allow a unified login experience.
-
-    await storage.save(DB_KEYS.SESSION, { email: cleanEmail, loginAt: new Date().toISOString() });
-    setUser(savedUser);
-
-    // Record login in database
+  // ── Unified Login ──────────────────────────────────────────────────────────
+  const login = async (email, password) => {
     try {
-      await fetch('http://localhost:3001/api/logs/login', {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: savedUser.id,
-          email: savedUser.email,
-          system: requiredRole === 'admin' ? 'admin' : 'crm'
-        })
+        body: JSON.stringify({ email, password })
       });
+
+      const result = await response.json();
+      if (!response.ok) return { ok: false, error: result.error || 'Login failed' };
+
+      // Save token and user info
+      await storage.save(DB_KEYS.SESSION, { token: result.token, user: result.user });
+      setUser(result.user);
+      return { ok: true };
     } catch (err) {
-      console.error('Failed to log login event:', err);
+      return { ok: false, error: 'Cannot connect to server.' };
     }
-
-    return { ok: true };
   };
 
-  // ── CRM Signup ─────────────────────────────────────────────────────────────
-  const signup = async ({ name, email, password, role }) => {
-    const cleanEmail = email.toLowerCase().trim();
-    const existing   = await storage.get(`${DB_KEYS.USERS}${cleanEmail}`);
-
-    if (existing) return { ok: false, error: 'An account with this email already exists.' };
-
-    const newUser = {
-      id:        generateId(),
-      name:      name.trim(),
-      email:     cleanEmail,
-      password,
-      role:      role || 'Sales Rep',
-      initials:  getInitials(name),
-      createdAt: new Date().toISOString(),
-    };
-
-    await storage.save(`${DB_KEYS.USERS}${cleanEmail}`, newUser);
-    await storage.save(DB_KEYS.SESSION, { email: cleanEmail });
-    setUser(newUser);
-    return { ok: true };
+  // ERP Login now uses the same unified auth system
+  const erpLogin = async (email, password) => {
+    const res = await login(email, password);
+    if (res.ok) setErpUser(user); // Map to erpUser for backward compatibility if needed
+    return res;
   };
 
-  // ── CRM Logout ─────────────────────────────────────────────────────────────
+  // ── Unified Signup (via HRM module) ─────────────────────────────────────────────
+  const signup = async (data) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/hrm/employees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const result = await response.json();
+      if (!response.ok) return { ok: false, error: result.error || 'Signup failed' };
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: 'Cannot connect to server.' };
+    }
+  };
+
+  // ── Logout ─────────────────────────────────────────────────────────────────
   const logout = async () => {
     await storage.remove(DB_KEYS.SESSION);
     setUser(null);
-  };
-
-  // ── ERP Login ──────────────────────────────────────────────────────────────
-  const erpLogin = async (email, password) => {
-    const cleanEmail = email.toLowerCase().trim();
-    const savedUser  = await storage.get(`${DB_KEYS.ERP_USERS}${cleanEmail}`);
-
-    if (!savedUser) return { ok: false, error: 'No ERP account found with this email.' };
-    if (savedUser.password !== password) return { ok: false, error: 'Incorrect password.' };
-
-    await storage.save(DB_KEYS.ERP_SESSION, { email: cleanEmail, loginAt: new Date().toISOString() });
-    setErpUser(savedUser);
-
-    // Record login in database
-    try {
-      await fetch('http://localhost:3001/api/logs/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: savedUser.id,
-          email: savedUser.email,
-          system: 'erp'
-        })
-      });
-    } catch (err) {
-      console.error('Failed to log ERP login event:', err);
-    }
-
-    return { ok: true };
-  };
-
-  // ── ERP Signup ─────────────────────────────────────────────────────────────
-  const erpSignup = async ({ name, email, password, role, shopName }) => {
-    const cleanEmail = email.toLowerCase().trim();
-    const existing   = await storage.get(`${DB_KEYS.ERP_USERS}${cleanEmail}`);
-
-    if (existing) return { ok: false, error: 'An ERP account with this email already exists.' };
-
-    const newUser = {
-      id:        generateId(),
-      name:      name.trim(),
-      email:     cleanEmail,
-      password,
-      role:      role || 'Shop Owner',
-      shopName:  shopName?.trim() || '',
-      initials:  getInitials(name),
-      system:    'erp',
-      createdAt: new Date().toISOString(),
-    };
-
-    await storage.save(`${DB_KEYS.ERP_USERS}${cleanEmail}`, newUser);
-    await storage.save(DB_KEYS.ERP_SESSION, { email: cleanEmail });
-    setErpUser(newUser);
-    return { ok: true };
-  };
-
-  // ── ERP Logout ─────────────────────────────────────────────────────────────
-  const erpLogout = async () => {
-    await storage.remove(DB_KEYS.ERP_SESSION);
     setErpUser(null);
   };
 
+  const erpLogout = logout;
+
   return (
-    <AuthContext.Provider value={{ user, erpUser, loading, login, signup, logout, erpLogin, erpSignup, erpLogout }}>
+    <AuthContext.Provider value={{ user, erpUser, loading, login, signup, logout, erpLogin, erpLogout }}>
       {children}
     </AuthContext.Provider>
   );

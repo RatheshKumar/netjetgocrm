@@ -18,8 +18,11 @@ import { required } from '../utils/validators';
 const T = theme;
 const DEFAULT_FORM = { title:'', description:'', status:'Todo', priority:'Medium', assignee:'', dueDate:'' };
 
-function TasksPage({ contacts }) {
-  const { items: tasks, loading, add, update, remove } = useDB(DB_KEYS.TASKS);
+function TasksPage() {
+  const { items: tasks, loading: tasksLoading, add, update, remove } = useDB(DB_KEYS.TASKS);
+  const { items: contacts } = useDB(DB_KEYS.CONTACTS);
+  
+  const loading = tasksLoading;
   const [search, setSearch]       = useState('');
   const [filter, setFilter]       = useState('All');
   const [modal, setModal]         = useState(false);

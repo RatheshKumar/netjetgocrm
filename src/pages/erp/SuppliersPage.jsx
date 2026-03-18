@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import theme from '../../config/theme';
 import { OPTIONS, DB_KEYS } from '../../config/db';
 import useDB from '../../hooks/useDB';
+import PageHeader from '../../components/ui/PageHeader';
 
 const T = theme;
 const labelStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: T.text.muted, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em' };
@@ -57,7 +58,7 @@ function SupplierModal({ onClose, onSave, form, setForm, isEdit }) {
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
             <button onClick={onClose} style={{ flex: 1, padding: '10px 0', background: '#fff', border: `1.5px solid ${T.border.light}`, borderRadius: T.radius.md, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: T.text.muted }}>Cancel</button>
-            <button onClick={onSave} style={{ flex: 2, padding: '10px 0', background: `linear-gradient(135deg,${T.brand.indigo},${T.brand.indigoMid})`, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={onSave} style={{ flex: 2, padding: '10px 0', background: T.brand.indigo, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               {isEdit ? 'Save Changes' : 'Add Supplier'}
             </button>
           </div>
@@ -90,13 +91,11 @@ export default function SuppliersPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: T.text.primary }}>Suppliers</h2>
-          <p style={{ color: T.text.muted, fontSize: 12, marginTop: 2 }}>{items.length} suppliers · {items.filter(i => i.status === 'Active').length} active</p>
-        </div>
-        <button onClick={openAdd} style={{ padding: '9px 18px', background: `linear-gradient(135deg,${T.brand.indigo},${T.brand.indigoMid})`, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Add Supplier</button>
-      </div>
+      <PageHeader
+        title="Suppliers"
+        subtitle={`${items.length} suppliers · ${items.filter(i => i.status === 'Active').length} active`}
+        right={<button onClick={openAdd} style={{ padding: '9px 18px', background: T.brand.indigo, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Add Supplier</button>}
+      />
 
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search suppliers…" style={{ ...inputStyle, maxWidth: 340, marginBottom: 16 }} />
 
@@ -113,7 +112,7 @@ export default function SuppliersPage() {
           return (
             <div key={sup.id} style={{ background: T.surface.card, borderRadius: T.radius.lg, border: `1px solid ${T.border.light}`, padding: 18, transition: 'box-shadow 0.15s' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                <div style={{ width: 42, height: 42, borderRadius: T.radius.md, background: `linear-gradient(135deg,${T.brand.indigo}22,${T.brand.pink}22)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🤝</div>
+                <div style={{ width: 42, height: 42, borderRadius: T.radius.md, background: `${T.brand.indigo}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🤝</div>
                 <span style={{ background: badge.bg, color: badge.text, borderRadius: 8, padding: '3px 8px', fontSize: 10, fontWeight: 700 }}>{sup.status}</span>
               </div>
               <div style={{ fontSize: 14, fontWeight: 800, color: T.text.primary, marginBottom: 4 }}>{sup.name}</div>

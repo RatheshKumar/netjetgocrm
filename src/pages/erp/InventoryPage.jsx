@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import theme from '../../config/theme';
 import { OPTIONS, DB_KEYS } from '../../config/db';
 import useDB from '../../hooks/useDB';
+import PageHeader from '../../components/ui/PageHeader';
 
 const T = theme;
 
@@ -57,7 +58,7 @@ function Modal({ title, onClose, onSave, form, setForm, isEdit }) {
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
             <button onClick={onClose} style={{ flex: 1, padding: '10px 0', background: '#fff', border: `1.5px solid ${T.border.light}`, borderRadius: T.radius.md, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: T.text.muted }}>Cancel</button>
-            <button onClick={onSave} style={{ flex: 2, padding: '10px 0', background: `linear-gradient(135deg,${T.brand.indigo},${T.brand.indigoMid})`, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={onSave} style={{ flex: 2, padding: '10px 0', background: T.brand.indigo, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               {isEdit ? 'Save Changes' : 'Add Product'}
             </button>
           </div>
@@ -103,14 +104,11 @@ export default function InventoryPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: T.text.primary }}>Inventory</h2>
-          <p style={{ color: T.text.muted, fontSize: 12, marginTop: 2 }}>{items.length} products · {items.reduce((s, i) => s + (i.stock || 0), 0)} total units</p>
-        </div>
-        <button onClick={openAdd} style={{ padding: '9px 18px', background: `linear-gradient(135deg,${T.brand.indigo},${T.brand.indigoMid})`, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Add Product</button>
-      </div>
+      <PageHeader
+        title="Inventory"
+        subtitle={`${items.length} products · ${items.reduce((s, i) => s + (i.stock || 0), 0)} total units`}
+        right={<button onClick={openAdd} style={{ padding: '9px 18px', background: T.brand.indigo, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ Add Product</button>}
+      />
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>

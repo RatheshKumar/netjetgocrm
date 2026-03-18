@@ -5,44 +5,16 @@ import React, { useState, useEffect } from 'react';
 // ── Auth ──────────────────────────────────────────────────────────────────────
 import { AuthProvider, useAuth } from './context/AuthContext';
 
-// ── Layout ────────────────────────────────────────────────────────────────────
-import Sidebar from './components/layout/Sidebar';
-import Topbar  from './components/layout/Topbar';
-
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 // ── Auth pages ────────────────────────────────────────────────────────────────
 import LoginPage      from './pages/LoginPage';
-// import AdminLoginPage from './pages/AdminLoginPage'; // Removed separate admin login
 import SignupPage     from './pages/SignupPage';
 
-// ── ERP Auth pages ────────────────────────────────────────────────────────────
-import ERPLoginPage  from './pages/erp/ERPLoginPage';
-import ERPSignupPage from './pages/erp/ERPSignupPage';
+// ── Shells ──────────────────────────────────────────────────────────────────
+import UnifiedShell from './UnifiedShell';
 
-// ── ERP Shell ─────────────────────────────────────────────────────────────────
-import ERPShell from './erp/ERPShell';
-
-// ── CRM pages ─────────────────────────────────────────────────────────────────
-import DashboardPage  from './pages/DashboardPage';
-import ContactsPage   from './pages/ContactsPage';
-import CompaniesPage  from './pages/CompaniesPage';
-import LeadsPage      from './pages/LeadsPage';
-import PipelinePage   from './pages/PipelinePage';
-import ContractsPage  from './pages/ContractsPage';
-import InvoicesPage   from './pages/InvoicesPage';
-import PaymentsPage   from './pages/PaymentsPage';
-import TasksPage      from './pages/TasksPage';
-import ProductsPage   from './pages/ProductsPage';
-import ProjectsPage   from './pages/ProjectsPage';
-import TicketsPage    from './pages/TicketsPage';
-import ReportsPage    from './pages/ReportsPage';
-import SettingsPage   from './pages/SettingsPage';
-// ✏️  Import new pages here ↑
-
-// ── Data hook & config ────────────────────────────────────────────────────────
-import useDB       from './hooks/useDB';
-import { DB_KEYS } from './config/db';
+// ── Data hooks & config ────────────────────────────────────────────────────────
 import theme       from './config/theme';
 
 const T = theme;
@@ -53,7 +25,31 @@ const T = theme;
 const GLOBAL_CSS = `
   @import url('${theme.fonts.import}');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: ${theme.fonts.body}; background: ${theme.surface.page}; color: ${theme.text.primary}; -webkit-font-smoothing: antialiased; }
+  body { 
+    font-family: ${theme.fonts.body}; 
+    background: #000; 
+    color: ${theme.text.primary}; 
+    -webkit-font-smoothing: antialiased; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  #root {
+    width: 1920px;
+    height: 1080px;
+    background: ${theme.surface.page};
+    position: relative;
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
+    overflow: hidden;
+  }
+  @media (max-width: 1920px) or (max-height: 1080px) {
+    #root {
+      width: 100vw;
+      height: 100vh;
+    }
+  }
   input, select, textarea, button { font-family: inherit; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -63,214 +59,32 @@ const GLOBAL_CSS = `
 `;
 
 // =============================================================================
-// CRM SHELL — shown when user is logged in
+// AUTH GATE — Unified OS Protection
 // =============================================================================
-function CRMShell() {
-  const [activePage, setActivePage] = useState('dashboard');
-
-  // ── Load all data with the useDB hook ──────────────────────────────────────
-  const contacts  = useDB(DB_KEYS.CONTACTS);
-  const companies = useDB(DB_KEYS.COMPANIES);
-  const leads     = useDB(DB_KEYS.LEADS);
-  const contracts = useDB(DB_KEYS.CONTRACTS);
-  const invoices  = useDB(DB_KEYS.INVOICES);
-  const payments  = useDB(DB_KEYS.PAYMENTS);
-  const tasks     = useDB(DB_KEYS.TASKS);
-  const pipelines = useDB(DB_KEYS.PIPELINES);
-  const products  = useDB(DB_KEYS.PRODUCTS);
-  const projects  = useDB(DB_KEYS.PROJECTS);
-  const tickets   = useDB(DB_KEYS.TICKETS);
-  // ✏️  Add new data hooks here ↑
-
-  // ── Sidebar badge counts ───────────────────────────────────────────────────
-  const counts = {
-    contacts:  contacts.items.length,
-    companies: companies.items.length,
-    leads:     leads.items.filter(l => ['Pending','In Progress'].includes(l.status)).length,
-    pipeline:  pipelines.items.length,
-    contracts: contracts.items.length,
-    invoices:  invoices.items.length,
-    payments:  payments.items.length,
-    tasks:     tasks.items.filter(t => t.status !== 'Completed').length,
-    products:  products.items.length,
-    projects:  projects.items.filter(p => !['Completed', 'Cancelled'].includes(p.status)).length,
-    tickets:   tickets.items.filter(t => !['Resolved', 'Closed'].includes(t.status)).length,
-  };
-
-  // ── Page map — add new pages here ─────────────────────────────────────────
-  // Each key matches the `id` in src/config/navigation.js
-  const pages = {
-    dashboard: (
-      <DashboardPage
-        contacts={contacts.items}
-        companies={companies.items}
-        leads={leads.items}
-        invoices={invoices.items}
-        payments={payments.items}
-        tasks={tasks.items}
-      />
-    ),
-    contacts: (
-      <ContactsPage
-        companies={companies.items}
-      />
-    ),
-    companies: (
-      <CompaniesPage />
-    ),
-    leads: (
-      <LeadsPage
-        companies={companies.items}
-      />
-    ),
-    pipeline: (
-      <PipelinePage />
-    ),
-    contracts: (
-      <ContractsPage
-        companies={companies.items}
-        contacts={contacts.items}
-      />
-    ),
-    invoices: (
-      <InvoicesPage
-        companies={companies.items}
-        contacts={contacts.items}
-      />
-    ),
-    payments: (
-      <PaymentsPage
-        invoices={invoices.items}
-        companies={companies.items}
-        contacts={contacts.items}
-      />
-    ),
-    tasks: (
-      <TasksPage
-        contacts={contacts.items}
-      />
-    ),
-    products: (
-      <ProductsPage />
-    ),
-    projects: (
-      <ProjectsPage 
-        companies={companies.items}
-      />
-    ),
-    tickets: (
-      <TicketsPage 
-        contacts={contacts.items}
-      />
-    ),
-    reports: (
-      <ReportsPage />
-    ),
-    settings: (
-      <SettingsPage />
-    ),
-    // ✏️  Add new pages here:
-    // mypage: <MyNewPage />,
-  };
-
-  return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* Left sidebar */}
-      <Sidebar
-        activePage={activePage}
-        setPage={setActivePage}
-        counts={counts}
-      />
-
-      {/* Main content area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Topbar />
-        <main style={{ flex: 1, overflowY: 'auto', padding: 28, background: T.surface.page }}>
-          {pages[activePage] || <div style={{ color: T.text.muted, padding: 40 }}>Page not found.</div>}
-        </main>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// CRM AUTH GATE — decides whether to show login/signup or the CRM
-// =============================================================================
-function AuthGate({ requireAdmin, authView, setAuthView }) {
+function AuthGate({ authView, setAuthView }) {
   const { user, loading } = useAuth();
 
-  // Loading spinner while session is being restored
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 14 }}>
         <div style={{ width: 34, height: 34, borderRadius: '50%', border: `3px solid ${T.border.light}`, borderTopColor: T.brand.indigo, animation: 'spin 0.7s linear infinite' }} />
-        <span style={{ color: T.text.muted, fontSize: 13 }}>Loading…</span>
+        <span style={{ color: T.text.muted, fontSize: 13 }}>Loading OS…</span>
       </div>
     );
   }
 
-  // Not logged in — show regular login/signup
   if (!user) {
     return authView === 'login'
-      ? <LoginPage  onGoSignup={() => setAuthView('signup')} isAdminRoute={requireAdmin} />
+      ? <LoginPage  onGoSignup={() => setAuthView('signup')} />
       : <SignupPage onGoLogin={()  => setAuthView('login')}  />;
   }
 
-  // Enforce role separation for active sessions
-  const isAdmin = user.role === 'Admin' || user.role === 'Administrator';
-  
-  if (requireAdmin && !isAdmin) {
-    return (
-      <div style={{ padding: 40, textAlign: 'center', fontFamily: T.fonts.body, color: T.text.primary }}>
-        <h2>Unauthorized</h2>
-        <p style={{ color: T.text.muted, marginTop: 10 }}>You must be an Administrator to access this portal.</p>
-        <button onClick={() => window.location.href = '/'} style={{ marginTop: 20, padding: '10px 20px', background: T.brand.indigo, color: '#fff', border: 'none', borderRadius: T.radius.md, cursor: 'pointer' }}>Go to User Portal</button>
-      </div>
-    );
-  }
-
-  if (!requireAdmin && isAdmin) {
-    // Admins can stay in User portal if they want, or we can redirect. 
-    // The user requested removing admin login, usually implies more freedom.
-    // For now, let's allow them to stay or offer a link in Sidebar.
-  }
-
-  // Logged in — show CRM
-  return <CRMShell />;
+  return <UnifiedShell />;
 }
 
-// =============================================================================
-// ERP AUTH GATE — decides whether to show ERP login/signup or the ERP shell
-// =============================================================================
-function ERPAuthGate({ erpView, setErpView }) {
-  const { erpUser, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 14 }}>
-        <div style={{ width: 34, height: 34, borderRadius: '50%', border: `3px solid ${T.border.light}`, borderTopColor: T.brand.indigo, animation: 'spin 0.7s linear infinite' }} />
-        <span style={{ color: T.text.muted, fontSize: 13 }}>Loading ERP…</span>
-      </div>
-    );
-  }
-
-  if (!erpUser) {
-    return erpView === 'login'
-      ? <ERPLoginPage  onGoSignup={() => setErpView('signup')} />
-      : <ERPSignupPage onGoLogin={() => setErpView('login')}   />;
-  }
-
-  return <ERPShell />;
-}
-
-// =============================================================================
-// ROOT EXPORT
-// =============================================================================
 export default function App() {
-  const [authView, setAuthView] = useState('login'); // 'login' | 'signup' for CRM
-  const [erpView,  setErpView]  = useState('login'); // 'login' | 'signup' for ERP
+  const [authView, setAuthView] = useState('login');
 
-  // Inject global CSS once on mount
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = GLOBAL_CSS;
@@ -282,16 +96,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* CRM routes */}
-          <Route path="/" element={<AuthGate requireAdmin={false} authView={authView} setAuthView={setAuthView} />} />
-          <Route path="/admin" element={<AuthGate requireAdmin={true} authView={authView} setAuthView={setAuthView} />} />
-
-          {/* ERP routes */}
-          <Route path="/erp" element={<ERPAuthGate erpView={erpView} setErpView={setErpView} />} />
-          <Route path="/erp/*" element={<ERPAuthGate erpView={erpView} setErpView={setErpView} />} />
-
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/*" element={<AuthGate authView={authView} setAuthView={setAuthView} />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

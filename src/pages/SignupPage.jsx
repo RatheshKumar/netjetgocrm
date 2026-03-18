@@ -47,8 +47,13 @@ function SignupPage({ onGoLogin }) {
     e.preventDefault();
     if (!validateStep2()) return;
     setLoading(true);
-    const res = await signup({ name: form.name, email: form.email, password: form.password, role: form.role });
-    if (!res.ok) { setErrors({ confirm: res.error }); setLoading(false); }
+    const res = await signup({ name: form.name, email: form.email, password: form.password, role: 'Pending' });
+    if (!res.ok) { 
+      setErrors({ confirm: res.error }); 
+      setLoading(false); 
+    } else {
+      onGoLogin(); // Success redirect
+    }
   };
 
   return (
@@ -61,10 +66,10 @@ function SignupPage({ onGoLogin }) {
 
         <img src={logoDark} alt="NetJetGo" style={{ width: 180, height: 'auto', marginBottom: 28, position: 'relative', zIndex: 1 }} />
         <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, textAlign: 'center', marginBottom: 10, letterSpacing: '-0.02em', position: 'relative', zIndex: 1 }}>
-          Start your journey<br />with NetJetGo
+          NetJet Unified Business OS
         </h2>
         <p style={{ color: T.text.onBrandMuted, fontSize: 12, textAlign: 'center', lineHeight: 1.7, maxWidth: 240, position: 'relative', zIndex: 1 }}>
-          Join the team and manage your sales pipeline, contacts, and more.
+          The complete platform for your business operations.
         </p>
 
         {/* Step indicators */}
@@ -104,12 +109,6 @@ function SignupPage({ onGoLogin }) {
             <form onSubmit={handleNext}>
               <Field label="Full Name"   name="name"  type="text"  value={form.name}  onChange={setField('name')}  placeholder="John Smith"          error={errors.name} />
               <Field label="Work Email"  name="email" type="email" value={form.email} onChange={setField('email')} placeholder="you@netjetgo.com"   error={errors.email} />
-              <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>Your Role</label>
-                <select value={form.role} onChange={setField('role')} style={selectStyle}>
-                  {OPTIONS.userRoles.map(r => <option key={r}>{r}</option>)}
-                </select>
-              </div>
               <button type="submit" style={submitBtn(false)}>Continue →</button>
             </form>
           )}

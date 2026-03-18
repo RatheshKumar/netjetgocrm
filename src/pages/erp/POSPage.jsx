@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import theme from '../../config/theme';
 import { OPTIONS, DB_KEYS } from '../../config/db';
 import useDB from '../../hooks/useDB';
+import PageHeader from '../../components/ui/PageHeader';
 
 const T = theme;
 
@@ -69,7 +70,9 @@ export default function POSPage() {
   };
 
   return (
-    <div style={{ display: 'flex', gap: 20, height: 'calc(100vh - 120px)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
+      <PageHeader title="Point of Sale" subtitle="Select products and complete the checkout process." />
+      <div style={{ display: 'flex', gap: 20, flex: 1, overflow: 'hidden' }}>
 
       {/* ── Left: Product Grid ────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -166,12 +169,13 @@ export default function POSPage() {
             {success ? (
               <div style={{ marginTop: 12, padding: '12px', background: 'rgba(16,185,129,0.1)', borderRadius: T.radius.md, textAlign: 'center', color: T.status.success, fontWeight: 700, fontSize: 13 }}>✅ Sale Completed!</div>
             ) : (
-              <button onClick={completeSale} style={{ width: '100%', marginTop: 12, padding: '12px 0', background: `linear-gradient(135deg,${T.brand.indigo},${T.brand.indigoMid})`, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 14px rgba(61,59,175,0.3)' }}>
+              <button onClick={completeSale} style={{ width: '100%', marginTop: 12, padding: '12px 0', background: T.brand.indigo, color: '#fff', border: 'none', borderRadius: T.radius.md, fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 14px rgba(61,59,175,0.2)' }}>
                 Complete Sale →
               </button>
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   );
