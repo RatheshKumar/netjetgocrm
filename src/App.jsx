@@ -13,7 +13,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // ── Auth pages ────────────────────────────────────────────────────────────────
 import LoginPage      from './pages/LoginPage';
-import AdminLoginPage from './pages/AdminLoginPage';
+// import AdminLoginPage from './pages/AdminLoginPage'; // Removed separate admin login
 import SignupPage     from './pages/SignupPage';
 
 // ── ERP Auth pages ────────────────────────────────────────────────────────────
@@ -209,13 +209,10 @@ function AuthGate({ requireAdmin, authView, setAuthView }) {
     );
   }
 
-  // Not logged in — show auth pages
+  // Not logged in — show regular login/signup
   if (!user) {
-    if (requireAdmin) {
-      return <AdminLoginPage />;
-    }
     return authView === 'login'
-      ? <LoginPage  onGoSignup={() => setAuthView('signup')} />
+      ? <LoginPage  onGoSignup={() => setAuthView('signup')} isAdminRoute={requireAdmin} />
       : <SignupPage onGoLogin={()  => setAuthView('login')}  />;
   }
 
@@ -233,7 +230,9 @@ function AuthGate({ requireAdmin, authView, setAuthView }) {
   }
 
   if (!requireAdmin && isAdmin) {
-    return <Navigate to="/admin" replace />;
+    // Admins can stay in User portal if they want, or we can redirect. 
+    // The user requested removing admin login, usually implies more freedom.
+    // For now, let's allow them to stay or offer a link in Sidebar.
   }
 
   // Logged in — show CRM

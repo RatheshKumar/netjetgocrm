@@ -118,15 +118,9 @@ function LoginPage({ onGoSignup }) {
             </button>
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12 }}>
-            <a href="/admin" style={{ color: T.text.muted, textDecoration: 'none' }}>
-              Administrator Login →
-            </a>
-          </div>
-
-          <div style={{ textAlign: 'center', marginTop: 8, fontSize: 12 }}>
-            <a href="/erp" style={{ color: T.brand.indigo, textDecoration: 'none', fontWeight: 600 }}>
-              🏪 Go to ERP Portal →
+          <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13 }}>
+            <a href="/erp" style={{ color: T.brand.indigo, textDecoration: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <span>🏪</span> Go to ERP Portal →
             </a>
           </div>
         </div>

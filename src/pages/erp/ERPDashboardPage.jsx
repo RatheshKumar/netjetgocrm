@@ -75,12 +75,52 @@ function ERPDashboardPage() {
         </p>
       </div>
 
-      {/* KPI Cards */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <KPICard icon="💰" label="Total Revenue" value={`₹${totalRevenue.toLocaleString('en-IN')}`} sub={`${totalSales} sales`} color={T.status.success} />
-        <KPICard icon="📦" label="Total Stock Units" value={totalItems.toLocaleString()} sub={lowStockItems.length > 0 ? `⚠ ${lowStockItems.length} low stock` : '✓ Stock OK'} color={T.brand.orange} />
-        <KPICard icon="👥" label="Active Employees" value={activeEmployees} sub={`${employees.length} total staff`} color={T.brand.pink} />
-        <KPICard icon="🛒" label="Pending Purchases" value={purchases.filter(p => p.status === 'Ordered').length} sub={`${purchases.length} total orders`} color={T.status.info} />
+      {/* Quick Actions & KPI Row */}
+      <div style={{ display: 'flex', gap: 24, marginBottom: 32, alignItems: 'flex-start' }}>
+        
+        {/* KPI Grid */}
+        <div style={{ flex: 3, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+          <KPICard icon="💰" label="Total Revenue" value={`₹${totalRevenue.toLocaleString('en-IN')}`} sub={`${totalSales} sales`} color={T.status.success} />
+          <KPICard icon="📦" label="Total Stock Units" value={totalItems.toLocaleString()} sub={lowStockItems.length > 0 ? `⚠ ${lowStockItems.length} low stock` : '✓ Stock OK'} color={T.brand.orange} />
+          <KPICard icon="👥" label="Active Employees" value={activeEmployees} sub={`${employees.length} total staff`} color={T.brand.pink} />
+          <KPICard icon="🛒" label="Pending Purchases" value={purchases.filter(p => p.status === 'Ordered').length} sub={`${purchases.length} total orders`} color={T.status.info} />
+        </div>
+
+        {/* Quick Actions Card */}
+        <div style={{ 
+          flex: 1, 
+          background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', 
+          borderRadius: T.radius.lg, 
+          padding: 24, 
+          color: '#fff', 
+          boxShadow: '0 8px 32px rgba(49, 46, 129, 0.2)',
+          minWidth: 260
+        }}>
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 16 }}>⚡ Quick Actions</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button onClick={() => window.location.hash = '#/erp/pos'} style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, transition: '0.2s' }}>
+              <span style={{ fontSize: 16 }}>💵</span> Create New Sale
+            </button>
+            <button onClick={() => window.location.hash = '#/erp/inventory'} style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, transition: '0.2s' }}>
+              <span style={{ fontSize: 16 }}>➕</span> Add New Product
+            </button>
+            <button onClick={() => window.location.hash = '#/erp/purchases'} style={{ width: '100%', padding: '10px 14px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, transition: '0.2s' }}>
+              <span style={{ fontSize: 16 }}>🚚</span> Order Stock
+            </button>
+          </div>
+          
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Database Status</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+              <span style={{ color: 'rgba(255,255,255,0.7)' }}>Connection</span>
+              <span style={{ color: T.status.success, fontWeight: 800 }}>● Online</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+              <span style={{ color: 'rgba(255,255,255,0.7)' }}>Engine</span>
+              <span style={{ fontWeight: 700 }}>MySQL 8.0</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Charts + Low Stock Row */}

@@ -49,12 +49,8 @@ export function AuthProvider({ children }) {
 
     const isAdmin = savedUser.role === 'Admin' || savedUser.role === 'Administrator';
 
-    if (requiredRole === 'admin' && !isAdmin) {
-      return { ok: false, error: 'Access denied: Administrators only.' };
-    }
-    if (requiredRole === 'user' && isAdmin) {
-      return { ok: false, error: 'Please use the Admin portal at /admin to log in.' };
-    }
+    // Role-based logic can still exist if needed, but we don't block login here anymore
+    // to allow a unified login experience.
 
     await storage.save(DB_KEYS.SESSION, { email: cleanEmail, loginAt: new Date().toISOString() });
     setUser(savedUser);
