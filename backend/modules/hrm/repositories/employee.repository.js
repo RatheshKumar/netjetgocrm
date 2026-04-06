@@ -3,12 +3,12 @@ const pool = require('../../../config/db');
 
 class EmployeeRepository {
   async getAll() {
-    const [rows] = await pool.query('SELECT * FROM hrm_employees');
+    const [rows] = await pool.query('SELECT id, name, email, role, department, status, createdAt FROM hrm_employees');
     return rows;
   }
 
   async getById(id) {
-    const [rows] = await pool.query('SELECT * FROM hrm_employees WHERE id = ?', [id]);
+    const [rows] = await pool.query('SELECT id, name, email, role, department, status, createdAt FROM hrm_employees WHERE id = ?', [id]);
     return rows[0];
   }
 

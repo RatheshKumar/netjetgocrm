@@ -1,10 +1,6 @@
-// =============================================================================
-// src/pages/InvoicesPage.jsx
-// =============================================================================
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import theme from '../config/theme';
-import { DB_KEYS, OPTIONS } from '../config/db';
-import useDB from '../hooks/useDB';
+import { OPTIONS } from '../config/db';
 import DataTable, { TR, TD } from '../components/ui/DataTable';
 import { Input, Select, Textarea } from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -14,22 +10,51 @@ import SearchBar from '../components/ui/SearchBar';
 import PageHeader from '../components/ui/PageHeader';
 import { formatDate, formatMoney, formatMoneyCompact } from '../utils/formatters';
 import { required } from '../utils/validators';
+import { useAuth } from '../context/AuthContext';
 
 const T = theme;
-const DEFAULT_FORM = { client:'', project:'', amount:'', paidAmount:'0', dueDate:'', status:'Unpaid', notes:'' };
+const DEFAULT_FORM = { client:'', project:'', amount:'', paidAmount:'0', dueDate:'', status:'Unpaid', notes:'', assignedTo:'' };
+const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 function InvoicesPage() {
-  const { items: invoices, loading: invLoading, add, update, remove } = useDB(DB_KEYS.INVOICES);
-  const { items: companies } = useDB(DB_KEYS.COMPANIES);
-  const { items: contacts }  = useDB(DB_KEYS.CONTACTS);
-  
-  const loading = invLoading;
-  const [search, setSearch]     = useState('');
-  const [modal, setModal]       = useState(false);
+  const { user } = useAuth();
+  const [invoices, setInvoices]   = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [contacts, setContacts]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState('');
+  const [modal, setModal]         = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [form, setForm]         = useState(DEFAULT_FORM);
+  const [form, setForm]         = useState({ ...DEFAULT_FORM, assignedTo: user?.name || '' });
   const [errors, setErrors]     = useState({});
   const [saving, setSaving]     = useState(false);
+
+  const isAdmin = ['Admin', 'CEO / Founder', 'Accountant'].includes(user?.role);
+  const canEdit = isAdmin || ['Sales Representative'].includes(user?.role);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [iRes, coRes, cnRes] = await Promise.all([
+        fetch(`${API_BASE}/api/crm/invoices`, { headers: authHeader() }),
+        fetch(`${API_BASE}/api/crm/companies`, { headers: authHeader() }),
+        fetch(`${API_BASE}/api/crm/contacts`, { headers: authHeader() })
+      ]);
+      const iData  = await iRes.json();
+      const coData = await coRes.json();
+      const cnData = await cnRes.json();
+      setInvoices(Array.isArray(iData) ? iData : []);
+      setCompanies(Array.isArray(coData) ? coData : []);
+      setContacts(Array.isArray(cnData) ? cnData : []);
+    } catch (err) {
+      console.error('Failed to fetch invoice data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(() =>
     invoices.filter(i=>[i.client,i.project,i.invoiceId].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),
@@ -45,15 +70,29 @@ function InvoicesPage() {
   const handleSave = async () => {
     const e={}; const ce=required(form.client,'Client'); if(ce) e.client=ce;
     if(Object.keys(e).length>0){setErrors(e);return;}
-    const invoiceId = editItem?.invoiceId || `INV-${Math.floor(Math.random()*9000+1000)}`;
+    const invoiceNumber = editItem?.invoiceNumber || `INV-${Math.floor(Math.random()*9000+1000)}`;
     setSaving(true);
-    editItem ? await update(editItem.id,form) : await add({...form,invoiceId});
-    setSaving(false); setModal(false);
+    try {
+      const url = editItem ? `${API_BASE}/api/crm/invoices/${editItem.id}` : `${API_BASE}/api/crm/invoices`;
+      const method = editItem ? 'PUT' : 'POST';
+      await fetch(url, {
+        method,
+        headers: authHeader(),
+        body: JSON.stringify({ ...form, invoiceNumber })
+      });
+      setModal(false);
+      fetchData();
+    } catch (err) {
+      alert('Failed to save invoice');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async item => {
-    if(!window.confirm(`Delete invoice ${item.invoiceId}?`)) return;
-    await remove(item.id);
+    if(!window.confirm(`Delete invoice ${item.invoiceNumber}?`)) return;
+    await fetch(`${API_BASE}/api/crm/invoices/${item.id}`, { method: 'DELETE', headers: authHeader() });
+    fetchData();
   };
 
   if(loading) return <div style={{padding:40,color:T.text.muted}}>Loading…</div>;
@@ -63,7 +102,7 @@ function InvoicesPage() {
       <PageHeader title="Invoices" count={invoices.length}>
         <span style={{fontSize:13,color:T.text.muted}}>Total: <strong style={{color:T.status.success}}>{formatMoneyCompact(totalInvoiced)}</strong></span>
         <SearchBar value={search} onChange={setSearch} placeholder="Search invoices…" />
-        <Button onClick={openAdd}>+ New Invoice</Button>
+        {canEdit && <Button onClick={openAdd}>+ New Invoice</Button>}
       </PageHeader>
       <DataTable columns={['Invoice ID','Client','Project','Amount','Paid','Balance','Due Date','Status','Actions']}
         data={filtered} emptyIcon="🧾" emptyTitle="No invoices yet" emptySubtitle="Create invoices to track client billing." onAdd={openAdd} addLabel="New Invoice"
@@ -71,7 +110,7 @@ function InvoicesPage() {
           const balance=(Number(inv.amount)||0)-(Number(inv.paidAmount)||0);
           return (
             <TR key={inv.id}>
-              <TD style={{color:T.brand.indigo,fontFamily:'monospace',fontSize:11,fontWeight:600}}>{inv.invoiceId}</TD>
+              <TD style={{color:T.brand.indigo,fontFamily:'monospace',fontSize:11,fontWeight:600}}>{inv.invoiceNumber}</TD>
               <TD><strong>{inv.client}</strong></TD>
               <TD style={{color:T.text.muted}}>{inv.project||'—'}</TD>
               <TD style={{fontWeight:600}}>{formatMoney(inv.amount)}</TD>
@@ -80,8 +119,8 @@ function InvoicesPage() {
               <TD style={{color:T.text.muted,fontSize:12}}>{formatDate(inv.dueDate)}</TD>
               <TD><Badge>{inv.status}</Badge></TD>
               <TD><div style={{display:'flex',gap:6}}>
-                <Button size="sm" variant="secondary" onClick={()=>openEdit(inv)}>Edit</Button>
-                <Button size="sm" variant="danger"    onClick={()=>handleDelete(inv)}>Delete</Button>
+                {canEdit && <Button size="sm" variant="secondary" onClick={()=>openEdit(inv)}>Edit</Button>}
+                {canEdit && <Button size="sm" variant="danger"    onClick={()=>handleDelete(inv)}>Delete</Button>}
               </div></TD>
             </TR>
           );
@@ -105,6 +144,7 @@ function InvoicesPage() {
             <div style={{gridColumn:'1/-1'}}>
               <Textarea label="Notes" value={form.notes} onChange={setField('notes')} placeholder="Invoice notes…" />
             </div>
+            <Input label="Assigned To" value={form.assignedTo} onChange={setField('assignedTo')} placeholder="Owner Name" disabled={!isAdmin} />
           </div>
         </Modal>
       )}

@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import theme from '../config/theme';
-import { DB_KEYS, OPTIONS } from '../config/db';
-import useDB from '../hooks/useDB';
+import { OPTIONS } from '../config/db';
 import DataTable, { TR, TD } from '../components/ui/DataTable';
 import { Input, Select } from "../components/ui/Input";
 import Button from '../components/ui/Button';
@@ -11,21 +10,46 @@ import SearchBar from '../components/ui/SearchBar';
 import PageHeader from '../components/ui/PageHeader';
 import { formatDate } from '../utils/formatters';
 import { required } from '../utils/validators';
+import { useAuth } from '../context/AuthContext';
 
 const T = theme;
 const DEFAULT_FORM = { name: '', clientId: '', status: '', deadline: '', budget: '', notes: '' };
+const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 function ProjectsPage() {
-  const { items: projects, loading: projLoading, add, update, remove } = useDB(DB_KEYS.PROJECTS);
-  const { items: companies } = useDB(DB_KEYS.COMPANIES);
-  
-  const loading = projLoading;
+  const { user } = useAuth();
+  const [projects, setProjects] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+
+  const canEdit = ['Admin', 'CEO / Founder', 'Project Manager', 'Sales Representative'].includes(user?.role);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [pRes, cRes] = await Promise.all([
+        fetch(`${API_BASE}/api/crm/projects`, { headers: authHeader() }),
+        fetch(`${API_BASE}/api/crm/companies`, { headers: authHeader() })
+      ]);
+      const pData = await pRes.json();
+      const cData = await cRes.json();
+      setProjects(Array.isArray(pData) ? pData : []);
+      setCompanies(Array.isArray(cData) ? cData : []);
+    } catch (err) {
+      console.error('Failed to fetch projects/companies:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(() =>
     projects.filter(p => [p.name, p.status].some(v => v?.toLowerCase().includes(search.toLowerCase()))),
@@ -42,13 +66,27 @@ function ProjectsPage() {
     if(Object.keys(e).length>0){setErrors(e);return;}
     
     setSaving(true);
-    editItem ? await update(editItem.id, form) : await add(form);
-    setSaving(false); setModal(false);
+    try {
+      const url = editItem ? `${API_BASE}/api/crm/projects/${editItem.id}` : `${API_BASE}/api/crm/projects`;
+      const method = editItem ? 'PUT' : 'POST';
+      await fetch(url, {
+        method,
+        headers: authHeader(),
+        body: JSON.stringify(form)
+      });
+      setModal(false);
+      fetchData();
+    } catch (err) {
+      alert('Failed to save project');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async item => {
     if(!window.confirm(`Delete project "${item.name}"?`)) return;
-    await remove(item.id);
+    await fetch(`${API_BASE}/api/crm/projects/${item.id}`, { method: 'DELETE', headers: authHeader() });
+    fetchData();
   };
 
   // Helper to fetch company name from companies list
@@ -68,7 +106,7 @@ function ProjectsPage() {
     <div>
       <PageHeader title="Projects" count={projects.length}>
         <SearchBar value={search} onChange={setSearch} placeholder="Search projects…" />
-        <Button onClick={openAdd}>+ New Project</Button>
+        {canEdit && <Button onClick={openAdd}>+ New Project</Button>}
       </PageHeader>
       
       <DataTable columns={['Project Name', 'Client/Company', 'Status', 'Budget', 'Deadline', 'Added', 'Actions']}
@@ -84,9 +122,9 @@ function ProjectsPage() {
             <TD style={{color:T.text.muted}}>{p.deadline || '—'}</TD>
             <TD style={{color:T.text.muted,fontSize:12}}>{formatDate(p.createdAt)}</TD>
             <TD><div style={{display:'flex',gap:6}}>
-              <Button size="sm" variant="secondary" onClick={()=>openEdit(p)}>Edit</Button>
-              <Button size="sm" variant="danger"    onClick={()=>handleDelete(p)}>Delete</Button>
-            </div></TD>
+                {canEdit && <Button size="sm" variant="secondary" onClick={()=>openEdit(p)}>Edit</Button>}
+                {canEdit && <Button size="sm" variant="danger"    onClick={()=>handleDelete(p)}>Delete</Button>}
+              </div></TD>
           </TR>
         )}
       />

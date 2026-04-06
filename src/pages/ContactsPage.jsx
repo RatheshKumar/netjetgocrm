@@ -1,185 +1,116 @@
-// =============================================================================
 // src/pages/ContactsPage.jsx
-// =============================================================================
-// 👤 CONTACTS PAGE
-//
-// ✏️  HOW TO ADD / REMOVE FORM FIELDS:
-//   1. Add/remove from FORM_FIELDS array below
-//   2. Add/remove from DEFAULT_FORM below
-//   3. Add/remove the matching <Input> or <Select> in the modal section
-//
-// ✏️  HOW TO ADD A NEW COLUMN TO THE TABLE:
-//   1. Add the column header to TABLE_COLUMNS
-//   2. Add a matching <TD> inside renderRow()
-// =============================================================================
-
-import React, { useState, useMemo } from 'react';
-import theme      from '../config/theme';
-import { DB_KEYS } from '../config/db';
-import useDB      from '../hooks/useDB';
-import DataTable, { TR, TD } from '../components/ui/DataTable';
-import { Input, Select, Textarea } from '../components/ui/Input';
-import Button     from '../components/ui/Button';
-import Modal      from '../components/ui/Modal';
-import Badge      from '../components/ui/Badge';
-import SearchBar  from '../components/ui/SearchBar';
+import React, { useState, useEffect, useCallback } from 'react';
+import theme from '../config/theme';
 import PageHeader from '../components/ui/PageHeader';
-import { formatDate } from '../utils/formatters';
-import { required, validEmail } from '../utils/validators';
+import Modal from '../components/ui/Modal';
+import { Input, Select } from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import { useAuth } from '../context/AuthContext';
 
 const T = theme;
+const DEFAULT_FORM = { name: '', email: '', phone: '', jobTitle: '', company: '', assignedTo: '' };
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}` });
 
-// ── Table columns ─────────────────────────────────────────────────────────────
-const TABLE_COLUMNS = ['Name', 'Email', 'Job Title', 'Company', 'Phone', 'Date Added', 'Actions'];
+export default function ContactsPage({ companies = [] }) {
+  const { user } = useAuth();
+  const [contacts, setContacts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({ ...DEFAULT_FORM, assignedTo: user?.name || '' });
+  
+  const isAdmin = ['Admin', 'CEO / Founder'].includes(user?.role);
+  const canDelete = isAdmin || ['Sales Representative'].includes(user?.role);
 
-// ── Default empty form (add fields here) ─────────────────────────────────────
-const DEFAULT_FORM = {
-  name:     '',
-  email:    '',
-  phone:    '',
-  jobTitle: '',
-  company:  '',
-  notes:    '',
-};
+  const fetchContacts = useCallback(() => {
+    setLoading(true);
+    fetch(`${API_BASE}/api/crm/contacts`, { headers: authHeader() })
+      .then(r => r.json())
+      .then(data => { setContacts(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
 
-// ── Validation rules ──────────────────────────────────────────────────────────
-function validateForm(form) {
-  const errors = {};
-  const nameErr  = required(form.name, 'Name');
-  if (nameErr) errors.name = nameErr;
-  if (form.email) {
-    const emailErr = validEmail(form.email);
-    if (emailErr) errors.email = emailErr;
-  }
-  return errors;
-}
+  useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
-function ContactsPage({ companies }) {
-  const { items: contacts, loading, add, update, remove } = useDB(DB_KEYS.CONTACTS);
-
-  const [search,   setSearch]   = useState('');
-  const [modal,    setModal]    = useState(false);
-  const [editItem, setEditItem] = useState(null); // null = adding new
-  const [form,     setForm]     = useState(DEFAULT_FORM);
-  const [errors,   setErrors]   = useState({});
-  const [saving,   setSaving]   = useState(false);
-
-  // ── Filtering ─────────────────────────────────────────────────────────────
-  const filtered = useMemo(() =>
-    contacts.filter(c =>
-      [c.name, c.email, c.company, c.jobTitle, c.phone]
-        .some(v => v?.toLowerCase().includes(search.toLowerCase()))
-    ),
-    [contacts, search]
-  );
-
-  // ── Open modal ────────────────────────────────────────────────────────────
-  const openAdd = () => {
-    setForm(DEFAULT_FORM);
-    setEditItem(null);
-    setErrors({});
-    setModal(true);
-  };
-
-  const openEdit = (item) => {
-    setForm({ ...DEFAULT_FORM, ...item });
-    setEditItem(item);
-    setErrors({});
-    setModal(true);
-  };
-
-  // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
-    const validationErrors = validateForm(form);
-    if (Object.keys(validationErrors).length > 0) { setErrors(validationErrors); return; }
-
-    setSaving(true);
-    if (editItem) {
-      await update(editItem.id, form);
-    } else {
-      await add(form);
-    }
-    setSaving(false);
+    if (!form.name) return alert('Name is required');
+    await fetch(`${API_BASE}/api/crm/contacts`, {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(form)
+    });
     setModal(false);
+    setForm(DEFAULT_FORM);
+    fetchContacts();
   };
 
-  // ── Delete ────────────────────────────────────────────────────────────────
-  const handleDelete = async (item) => {
-    if (!window.confirm(`Delete contact "${item.name}"? This cannot be undone.`)) return;
-    await remove(item.id);
+  const handleDelete = async (id) => {
+    if(!window.confirm('Delete this contact?')) return;
+    await fetch(`${API_BASE}/api/crm/contacts/${id}`, { method: 'DELETE', headers: authHeader() });
+    fetchContacts();
   };
 
-  // ── Field change helper ───────────────────────────────────────────────────
-  const setField = key => e => {
-    setForm(p => ({ ...p, [key]: e.target.value }));
-    setErrors(p => ({ ...p, [key]: '' }));
-  };
-
-  if (loading) return <div style={{ padding: 40, color: T.text.muted }}>Loading contacts…</div>;
+  const setField = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
 
   return (
     <div>
-      <PageHeader title="Contacts" count={contacts.length}>
-        <SearchBar value={search} onChange={setSearch} placeholder="Search contacts…" />
-        <Button onClick={openAdd}>+ Add Contact</Button>
-      </PageHeader>
-
-      {/* ── Table ─────────────────────────────────────────────────────────── */}
-      <DataTable
-        columns={TABLE_COLUMNS}
-        data={filtered}
-        emptyIcon="👤"
-        emptyTitle="No contacts yet"
-        emptySubtitle="Add your first contact to start building your network."
-        onAdd={openAdd}
-        addLabel="Add Contact"
-        renderRow={(c) => (
-          <TR key={c.id}>
-            <TD><strong>{c.name}</strong></TD>
-            <TD style={{ color: T.text.muted }}>{c.email || '—'}</TD>
-            <TD style={{ color: T.text.muted }}>{c.jobTitle || '—'}</TD>
-            <TD>{c.company ? <Badge>{c.company}</Badge> : '—'}</TD>
-            <TD style={{ color: T.text.muted, fontFamily: 'monospace', fontSize: 12 }}>{c.phone || '—'}</TD>
-            <TD style={{ color: T.text.muted, fontSize: 12 }}>{formatDate(c.createdAt)}</TD>
-            <TD>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <Button size="sm" variant="secondary" onClick={() => openEdit(c)}>Edit</Button>
-                <Button size="sm" variant="danger"    onClick={() => handleDelete(c)}>Delete</Button>
-              </div>
-            </TD>
-          </TR>
-        )}
+      <PageHeader 
+        title="Contacts" 
+        subtitle="Manage people and relationships." 
+        right={<Button onClick={() => setModal(true)}>+ New Contact</Button>}
       />
 
-      {/* ── Add / Edit Modal ──────────────────────────────────────────────── */}
+      <div style={{ background: '#fff', borderRadius: T.radius.lg, border: `1px solid ${T.border.light}`, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: T.surface.page, borderBottom: `1px solid ${T.border.light}` }}>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Name</th>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Job Title</th>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Company</th>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? <tr><td colSpan="4" style={{ padding: 40, textAlign: 'center' }}>Loading...</td></tr> : 
+             contacts.length === 0 ? <tr><td colSpan="4" style={{ padding: 40, textAlign: 'center' }}>No contacts yet.</td></tr> :
+             contacts.map(c => (
+              <tr key={c.id} style={{ borderBottom: `1px solid ${T.border.light}` }}>
+                <td style={{ padding: 16 }}>
+                  <div style={{ fontWeight: 700, color: T.text.primary }}>{c.name}</div>
+                  <div style={{ fontSize: 12, color: T.text.muted }}>{c.email} • {c.phone}</div>
+                </td>
+                <td style={{ padding: 16, fontSize: 13 }}>{c.jobTitle}</td>
+                <td style={{ padding: 16, fontSize: 13 }}>{c.company}</td>
+                <td style={{ padding: 16 }}>
+                  {canDelete && <Button size="sm" variant="danger" onClick={() => handleDelete(c.id)}>Delete</Button>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {modal && (
-        <Modal
-          title={editItem ? 'Edit Contact' : 'New Contact'}
-          onClose={() => setModal(false)}
-          onSave={handleSave}
-          saveLabel={saving ? 'Saving…' : 'Save Contact'}
-          wide
-        >
-          {/* ✏️  ADD / REMOVE FORM FIELDS HERE */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-            <Input label="Full Name *"  value={form.name}     onChange={setField('name')}     placeholder="John Smith"          error={errors.name} />
-            <Input label="Email"        value={form.email}    onChange={setField('email')}    placeholder="john@company.com" type="email" error={errors.email} />
-            <Input label="Phone"        value={form.phone}    onChange={setField('phone')}    placeholder="+1 234 567 8900" />
-            <Input label="Job Title"    value={form.jobTitle} onChange={setField('jobTitle')} placeholder="Sales Manager" />
-            <div style={{ gridColumn: '1/-1' }}>
+        <Modal title="Create New Contact" onClose={() => setModal(false)} onSave={handleSave}>
+          <div style={{ display: 'grid', gap: 16 }}>
+            <Input label="Name *" value={form.name} onChange={setField('name')} placeholder="John Doe" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <Input label="Email" value={form.email} onChange={setField('email')} />
+              <Input label="Phone" value={form.phone} onChange={setField('phone')} />
+            </div>
+            <Input label="Job Title" value={form.jobTitle} onChange={setField('jobTitle')} />
+            {companies && companies.length > 0 ? (
               <Select label="Company" value={form.company} onChange={setField('company')}>
-                <option value="">No company</option>
+                <option value="">None</option>
                 {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </Select>
-            </div>
-            <div style={{ gridColumn: '1/-1' }}>
-              <Textarea label="Notes" value={form.notes} onChange={setField('notes')} placeholder="Any additional notes about this contact…" />
-            </div>
+            ) : (
+               <Input label="Company Name" value={form.company} onChange={setField('company')} />
+            )}
+            <Input label="Assigned To" value={form.assignedTo} onChange={setField('assignedTo')} placeholder="Owner Name" disabled={!isAdmin} />
           </div>
         </Modal>
       )}
     </div>
   );
 }
-
-export default ContactsPage;

@@ -103,7 +103,9 @@ function SettingsPage() {
             <Input 
               label="Job Role" 
               value={profileForm.role} 
+              disabled={!['Admin', 'CEO / Founder'].includes(user?.role)}
               onChange={e => setProfileForm(p => ({...p, role: e.target.value}))} 
+              title={['Admin', 'CEO / Founder'].includes(user?.role) ? "Assign role" : "Contact Admin to change role"}
             />
           </div>
         </div>

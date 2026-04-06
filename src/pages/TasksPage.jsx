@@ -1,10 +1,9 @@
 // =============================================================================
 // src/pages/TasksPage.jsx
 // =============================================================================
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import theme from '../config/theme';
-import { DB_KEYS, OPTIONS } from '../config/db';
-import useDB from '../hooks/useDB';
+import { OPTIONS } from '../config/db';
 import { Input, Select, Textarea } from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
@@ -14,15 +13,18 @@ import PageHeader from '../components/ui/PageHeader';
 import EmptyState from '../components/ui/EmptyState';
 import { formatDate } from '../utils/formatters';
 import { required } from '../utils/validators';
+import { useAuth } from '../context/AuthContext';
 
 const T = theme;
-const DEFAULT_FORM = { title:'', description:'', status:'Todo', priority:'Medium', assignee:'', dueDate:'' };
+const DEFAULT_FORM = { title:'', description:'', status:'Todo', priority:'Normal', assignee:'', dueDate:'' };
+const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 function TasksPage() {
-  const { items: tasks, loading: tasksLoading, add, update, remove } = useDB(DB_KEYS.TASKS);
-  const { items: contacts } = useDB(DB_KEYS.CONTACTS);
-  
-  const loading = tasksLoading;
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch]       = useState('');
   const [filter, setFilter]       = useState('All');
   const [modal, setModal]         = useState(false);
@@ -30,6 +32,28 @@ function TasksPage() {
   const [form, setForm]           = useState(DEFAULT_FORM);
   const [errors, setErrors]       = useState({});
   const [saving, setSaving]       = useState(false);
+
+  const canEdit = ['Admin', 'CEO / Founder', 'Project Manager', 'Support Agent', 'Sales Representative'].includes(user?.role);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [tRes, cRes] = await Promise.all([
+        fetch(`${API_BASE}/api/crm/tasks`, { headers: authHeader() }),
+        fetch(`${API_BASE}/api/crm/contacts`, { headers: authHeader() })
+      ]);
+      const tData = await tRes.json();
+      const cData = await cRes.json();
+      setTasks(Array.isArray(tData) ? tData : []);
+      setContacts(Array.isArray(cData) ? cData : []);
+    } catch (err) {
+      console.error('Failed to fetch tasks/contacts:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(() => tasks.filter(t => {
     const ms = t.title?.toLowerCase().includes(search.toLowerCase());
@@ -45,18 +69,37 @@ function TasksPage() {
     const e={}; const te=required(form.title,'Title'); if(te) e.title=te;
     if(Object.keys(e).length>0){setErrors(e);return;}
     setSaving(true);
-    editItem ? await update(editItem.id,form) : await add(form);
-    setSaving(false); setModal(false);
+    try {
+      const url = editItem ? `${API_BASE}/api/crm/tasks/${editItem.id}` : `${API_BASE}/api/crm/tasks`;
+      const method = editItem ? 'PUT' : 'POST';
+      await fetch(url, {
+        method,
+        headers: authHeader(),
+        body: JSON.stringify(form)
+      });
+      setModal(false);
+      fetchData();
+    } catch (err) {
+      alert('Failed to save task');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async item => {
     if(!window.confirm('Delete this task?')) return;
-    await remove(item.id);
+    await fetch(`${API_BASE}/api/crm/tasks/${item.id}`, { method: 'DELETE', headers: authHeader() });
+    fetchData();
   };
 
   const toggleComplete = async task => {
     const next = task.status==='Completed' ? 'In Progress' : 'Completed';
-    await update(task.id,{ status: next });
+    await fetch(`${API_BASE}/api/crm/tasks/${task.id}`, {
+      method: 'PUT',
+      headers: authHeader(),
+      body: JSON.stringify({ ...task, status: next })
+    });
+    fetchData();
   };
 
   const openCount = tasks.filter(t=>t.status!=='Completed').length;
@@ -67,7 +110,7 @@ function TasksPage() {
     <div>
       <PageHeader title="Tasks" count={openCount}>
         <SearchBar value={search} onChange={setSearch} placeholder="Search tasks…" />
-        <Button onClick={openAdd}>+ Add Task</Button>
+        {canEdit && <Button onClick={openAdd}>+ Add Task</Button>}
       </PageHeader>
 
       {/* Filter tabs */}
@@ -84,7 +127,7 @@ function TasksPage() {
 
       {filtered.length===0 ? (
         <div style={{background:T.surface.card,border:`1px solid ${T.border.light}`,borderRadius:T.radius.lg}}>
-          <EmptyState icon="✅" title="No tasks here" subtitle="Add tasks to track your work and deadlines." action={<Button onClick={openAdd}>+ Add Task</Button>} />
+          <EmptyState icon="✅" title="No tasks here" subtitle="Add tasks to track your work and deadlines." action={canEdit && <Button onClick={openAdd}>+ Add Task</Button>} />
         </div>
       ) : (
         <div style={{display:'flex',flexDirection:'column',gap:9}}>
@@ -110,8 +153,8 @@ function TasksPage() {
               </div>
 
               <div style={{display:'flex',gap:6,flexShrink:0}}>
-                <Button size="sm" variant="ghost"    onClick={()=>openEdit(task)}>Edit</Button>
-                <Button size="sm" variant="danger"   onClick={()=>handleDelete(task)}>Delete</Button>
+                {canEdit && <Button size="sm" variant="ghost"    onClick={()=>openEdit(task)}>Edit</Button>}
+                {canEdit && <Button size="sm" variant="danger"   onClick={()=>handleDelete(task)}>Delete</Button>}
               </div>
             </div>
           ))}

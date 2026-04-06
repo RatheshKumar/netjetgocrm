@@ -29,6 +29,14 @@ class EmployeeController {
       res.status(500).json({ error: err.message });
     }
   }
+  async remove(req, res) {
+    try {
+      await employeeService.removeEmployee(req.params.id);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = new EmployeeController();

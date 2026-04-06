@@ -1,10 +1,6 @@
-// =============================================================================
-// src/pages/ContractsPage.jsx
-// =============================================================================
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import theme from '../config/theme';
-import { DB_KEYS, OPTIONS } from '../config/db';
-import useDB from '../hooks/useDB';
+import { OPTIONS } from '../config/db';
 import DataTable, { TR, TD } from '../components/ui/DataTable';
 import { Input, Select, Textarea } from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -14,18 +10,50 @@ import SearchBar from '../components/ui/SearchBar';
 import PageHeader from '../components/ui/PageHeader';
 import { formatDate, formatMoney } from '../utils/formatters';
 import { required } from '../utils/validators';
+import { useAuth } from '../context/AuthContext';
 
 const T = theme;
 const DEFAULT_FORM = { subject:'', customer:'', value:'', type:'Service Agreement', startDate:'', endDate:'', status:'Active', description:'' };
+const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
-function ContractsPage({ companies, contacts }) {
-  const { items: contracts, loading, add, update, remove } = useDB(DB_KEYS.CONTRACTS);
-  const [search, setSearch]     = useState('');
+function ContractsPage() {
+  const { user } = useAuth();
+  const [contracts, setContracts] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [contacts, setContacts]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState('');
   const [modal, setModal]       = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm]         = useState(DEFAULT_FORM);
   const [errors, setErrors]     = useState({});
   const [saving, setSaving]     = useState(false);
+
+  const canEdit = ['Admin', 'CEO / Founder', 'Sales Representative', 'Accountant'].includes(user?.role);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [cRes, coRes, cnRes] = await Promise.all([
+        fetch(`${API_BASE}/api/crm/contracts`, { headers: authHeader() }),
+        fetch(`${API_BASE}/api/crm/companies`, { headers: authHeader() }),
+        fetch(`${API_BASE}/api/crm/contacts`, { headers: authHeader() })
+      ]);
+      const cData  = await cRes.json();
+      const coData = await coRes.json();
+      const cnData = await cnRes.json();
+      setContracts(Array.isArray(cData) ? cData : []);
+      setCompanies(Array.isArray(coData) ? coData : []);
+      setContacts(Array.isArray(cnData) ? cnData : []);
+    } catch (err) {
+      console.error('Failed to fetch contract data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(() =>
     contracts.filter(c=>[c.subject,c.customer,c.type].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),
@@ -41,13 +69,27 @@ function ContractsPage({ companies, contacts }) {
     if(Object.keys(e).length>0){setErrors(e);return;}
     const contractId = editItem?.contractId || `#${Math.floor(Math.random()*9000000+1000000)}`;
     setSaving(true);
-    editItem ? await update(editItem.id,form) : await add({...form,contractId});
-    setSaving(false); setModal(false);
+    try {
+      const url = editItem ? `${API_BASE}/api/crm/contracts/${editItem.id}` : `${API_BASE}/api/crm/contracts`;
+      const method = editItem ? 'PUT' : 'POST';
+      await fetch(url, {
+        method,
+        headers: authHeader(),
+        body: JSON.stringify({ ...form, contractId })
+      });
+      setModal(false);
+      fetchData();
+    } catch (err) {
+      alert('Failed to save contract');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async item => {
     if(!window.confirm(`Delete contract "${item.subject}"?`)) return;
-    await remove(item.id);
+    await fetch(`${API_BASE}/api/crm/contracts/${item.id}`, { method: 'DELETE', headers: authHeader() });
+    fetchData();
   };
 
   if(loading) return <div style={{padding:40,color:T.text.muted}}>Loading…</div>;
@@ -56,7 +98,7 @@ function ContractsPage({ companies, contacts }) {
     <div>
       <PageHeader title="Contracts" count={contracts.length}>
         <SearchBar value={search} onChange={setSearch} placeholder="Search contracts…" />
-        <Button onClick={openAdd}>+ Add Contract</Button>
+        {canEdit && <Button onClick={openAdd}>+ Add Contract</Button>}
       </PageHeader>
       <DataTable columns={['Contract ID','Subject','Customer','Value','Type','Start','End','Status','Actions']}
         data={filtered} emptyIcon="📄" emptyTitle="No contracts yet" emptySubtitle="Create contracts to track client agreements." onAdd={openAdd} addLabel="Add Contract"
@@ -71,9 +113,9 @@ function ContractsPage({ companies, contacts }) {
             <TD style={{color:T.text.muted,fontSize:12}}>{formatDate(c.endDate)}</TD>
             <TD><Badge>{c.status||'Active'}</Badge></TD>
             <TD><div style={{display:'flex',gap:6}}>
-              <Button size="sm" variant="secondary" onClick={()=>openEdit(c)}>Edit</Button>
-              <Button size="sm" variant="danger"    onClick={()=>handleDelete(c)}>Delete</Button>
-            </div></TD>
+                {canEdit && <Button size="sm" variant="secondary" onClick={()=>openEdit(c)}>Edit</Button>}
+                {canEdit && <Button size="sm" variant="danger"    onClick={()=>handleDelete(c)}>Delete</Button>}
+              </div></TD>
           </TR>
         )}
       />

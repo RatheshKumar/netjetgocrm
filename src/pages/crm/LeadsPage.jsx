@@ -7,16 +7,20 @@ import Modal from '../../components/ui/Modal';
 import { Input, Select } from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { OPTIONS } from '../../config/db';
+import { useAuth } from '../../context/AuthContext';
 
 const T = theme;
 const DEFAULT_FORM = { name: '', email: '', status: 'New', value: 0, assignedTo: '' };
 
 export default function LeadsPage() {
+  const { user } = useAuth();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState(DEFAULT_FORM);
+  const [form, setForm] = useState({ ...DEFAULT_FORM, assignedTo: user?.name || '' });
   const [saving, setSaving] = useState(false);
+
+  const isAdmin = ['Admin', 'CEO / Founder'].includes(user?.role);
 
   const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
@@ -124,7 +128,7 @@ export default function LeadsPage() {
               </Select>
               <Input label="Pipeline Value ($)" type="number" value={form.value} onChange={setField('value')} />
             </div>
-            <Input label="Assigned To" value={form.assignedTo} onChange={setField('assignedTo')} placeholder="Agent Name" />
+            <Input label="Assigned To" value={form.assignedTo} onChange={setField('assignedTo')} placeholder="Agent Name" disabled={!isAdmin} />
           </div>
         </Modal>
       )}

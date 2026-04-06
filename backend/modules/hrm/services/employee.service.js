@@ -40,6 +40,10 @@ class EmployeeService {
     const all = await employeeRepo.getAll();
     return all.filter(e => e.role.includes('Manager'));
   }
+  async removeEmployee(id) {
+    await employeeRepo.delete(id);
+    return { ok: true };
+  }
 }
 
 module.exports = new EmployeeService();

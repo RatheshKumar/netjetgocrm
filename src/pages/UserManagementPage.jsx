@@ -19,7 +19,11 @@ export default function UserManagementPage() {
       .catch(() => {});
   }, []);
 
-  const roles = ['Admin', 'Sales Rep', 'Sales Manager', 'Account Manager', 'Business Developer', 'CEO / Founder', 'Operations', 'HR', 'Employee'];
+  const roles = [
+    'Admin', 'CEO / Founder', 'HR Manager', 'Sales Representative', 
+    'Marketing Specialist', 'Accountant', 'Support Agent', 'Project Manager', 
+    'Regular Employee'
+  ];
 
   const updateRole = async (userId, newRole) => {
     try {

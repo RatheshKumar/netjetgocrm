@@ -1,103 +1,108 @@
-// =============================================================================
 // src/pages/CompaniesPage.jsx
-// =============================================================================
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import theme from '../config/theme';
-import { DB_KEYS, OPTIONS } from '../config/db';
-import useDB from '../hooks/useDB';
-import DataTable, { TR, TD } from '../components/ui/DataTable';
-import { Input, Select } from "../components/ui/Input";
-import Button from '../components/ui/Button';
-import Modal from '../components/ui/Modal';
-import Badge from '../components/ui/Badge';
-import SearchBar from '../components/ui/SearchBar';
 import PageHeader from '../components/ui/PageHeader';
-import { formatDate } from '../utils/formatters';
-import { required } from '../utils/validators';
+import Modal from '../components/ui/Modal';
+import { Input } from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import { useAuth } from '../context/AuthContext';
 
 const T = theme;
-const DEFAULT_FORM = { name:'', website:'', industry:'', address:'', phone:'', email:'', size:'' };
+const DEFAULT_FORM = { name: '', industry: '', website: '', phone: '', assignedTo: '' };
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}` });
 
-function CompaniesPage() {
-  const { items: companies, loading, add, update, remove } = useDB(DB_KEYS.COMPANIES);
-  const [search, setSearch] = useState('');
-  const [modal, setModal]   = useState(false);
-  const [editItem, setEditItem] = useState(null);
-  const [form, setForm]     = useState(DEFAULT_FORM);
-  const [errors, setErrors] = useState({});
-  const [saving, setSaving] = useState(false);
+export default function CompaniesPage() {
+  const { user } = useAuth();
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({ ...DEFAULT_FORM, assignedTo: user?.name || '' });
 
-  const filtered = useMemo(() =>
-    companies.filter(c => [c.name, c.industry, c.website].some(v => v?.toLowerCase().includes(search.toLowerCase()))),
-    [companies, search]
-  );
+  const isAdmin = ['Admin', 'CEO / Founder'].includes(user?.role);
+  const canDelete = isAdmin || ['Sales Representative'].includes(user?.role);
 
-  const setField = k => e => { setForm(p => ({...p,[k]:e.target.value})); setErrors(p=>({...p,[k]:''})); };
-  const openAdd  = () => { setForm(DEFAULT_FORM); setEditItem(null); setErrors({}); setModal(true); };
-  const openEdit = item => { setForm({...DEFAULT_FORM,...item}); setEditItem(item); setErrors({}); setModal(true); };
+  const fetchCompanies = useCallback(() => {
+    setLoading(true);
+    fetch(`${API_BASE}/api/crm/companies`, { headers: authHeader() })
+      .then(r => r.json())
+      .then(data => { setCompanies(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
   const handleSave = async () => {
-    const e = {}; const ne = required(form.name,'Company name'); if(ne) e.name=ne;
-    if(Object.keys(e).length>0){setErrors(e);return;}
-    setSaving(true);
-    editItem ? await update(editItem.id, form) : await add(form);
-    setSaving(false); setModal(false);
+    if (!form.name) return alert('Company Name is required');
+    await fetch(`${API_BASE}/api/crm/companies`, {
+      method: 'POST',
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(form)
+    });
+    setModal(false);
+    setForm(DEFAULT_FORM);
+    fetchCompanies();
   };
 
-  const handleDelete = async item => {
-    if(!window.confirm(`Delete "${item.name}"?`)) return;
-    await remove(item.id);
+  const handleDelete = async (id) => {
+    if(!window.confirm('Delete this company?')) return;
+    await fetch(`${API_BASE}/api/crm/companies/${id}`, { method: 'DELETE', headers: authHeader() });
+    fetchCompanies();
   };
 
-  if (loading) return <div style={{padding:40,color:T.text.muted}}>Loading…</div>;
+  const setField = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
 
   return (
     <div>
-      <PageHeader title="Companies" count={companies.length}>
-        <SearchBar value={search} onChange={setSearch} placeholder="Search companies…" />
-        <Button onClick={openAdd}>+ Add Company</Button>
-      </PageHeader>
-      <DataTable columns={['Name','Industry','Website','Email','Phone','Size','Added','Actions']}
-        data={filtered} emptyIcon="🏢" emptyTitle="No companies yet" emptySubtitle="Add companies to link with contacts and leads." onAdd={openAdd} addLabel="Add Company"
-        renderRow={c => (
-          <TR key={c.id}>
-            <TD><strong>{c.name}</strong></TD>
-            <TD>{c.industry ? <Badge>{c.industry}</Badge> : '—'}</TD>
-            <TD style={{color:T.brand.indigo,fontSize:12}}>{c.website||'—'}</TD>
-            <TD style={{color:T.text.muted}}>{c.email||'—'}</TD>
-            <TD style={{color:T.text.muted,fontFamily:'monospace',fontSize:12}}>{c.phone||'—'}</TD>
-            <TD style={{color:T.text.muted}}>{c.size||'—'}</TD>
-            <TD style={{color:T.text.muted,fontSize:12}}>{formatDate(c.createdAt)}</TD>
-            <TD><div style={{display:'flex',gap:6}}>
-              <Button size="sm" variant="secondary" onClick={()=>openEdit(c)}>Edit</Button>
-              <Button size="sm" variant="danger"    onClick={()=>handleDelete(c)}>Delete</Button>
-            </div></TD>
-          </TR>
-        )}
+      <PageHeader 
+        title="Companies" 
+        subtitle="Manage B2B accounts and clients." 
+        right={<Button onClick={() => setModal(true)}>+ New Company</Button>}
       />
+
+      <div style={{ background: '#fff', borderRadius: T.radius.lg, border: `1px solid ${T.border.light}`, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: T.surface.page, borderBottom: `1px solid ${T.border.light}` }}>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Company</th>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Industry</th>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Website</th>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? <tr><td colSpan="4" style={{ padding: 40, textAlign: 'center' }}>Loading...</td></tr> : 
+             companies.length === 0 ? <tr><td colSpan="4" style={{ padding: 40, textAlign: 'center' }}>No companies yet.</td></tr> :
+             companies.map(c => (
+              <tr key={c.id} style={{ borderBottom: `1px solid ${T.border.light}` }}>
+                <td style={{ padding: 16 }}>
+                  <div style={{ fontWeight: 700, color: T.text.primary }}>{c.name}</div>
+                  <div style={{ fontSize: 12, color: T.text.muted }}>{c.phone}</div>
+                </td>
+                <td style={{ padding: 16, fontSize: 13 }}>{c.industry}</td>
+                <td style={{ padding: 16, fontSize: 13 }}><a href={c.website} target="_blank" rel="noreferrer" style={{color: T.brand.indigo}}>{c.website}</a></td>
+                <td style={{ padding: 16 }}>
+                  {canDelete && <Button size="sm" variant="danger" onClick={() => handleDelete(c.id)}>Delete</Button>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {modal && (
-        <Modal title={editItem?'Edit Company':'New Company'} onClose={()=>setModal(false)} onSave={handleSave} saveLabel={saving?'Saving…':'Save Company'} wide>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 20px'}}>
-            <Input label="Company Name *" value={form.name}    onChange={setField('name')}    placeholder="Acme Corp"       error={errors.name} />
-            <Select label="Industry"      value={form.industry} onChange={setField('industry')}>
-              <option value="">Select…</option>
-              {OPTIONS.industries.map(i=><option key={i}>{i}</option>)}
-            </Select>
-            <Input label="Website"  value={form.website} onChange={setField('website')} placeholder="https://company.com" />
-            <Input label="Email"    value={form.email}   onChange={setField('email')}   placeholder="info@company.com" type="email" />
-            <Input label="Phone"    value={form.phone}   onChange={setField('phone')}   placeholder="+1 800 000 0000" />
-            <Select label="Company Size" value={form.size} onChange={setField('size')}>
-              <option value="">Select…</option>
-              {OPTIONS.companySizes.map(s=><option key={s}>{s}</option>)}
-            </Select>
-            <div style={{gridColumn:'1/-1'}}>
-              <Input label="Address" value={form.address} onChange={setField('address')} placeholder="123 Main St, City, Country" />
+        <Modal title="Add New Company" onClose={() => setModal(false)} onSave={handleSave}>
+          <div style={{ display: 'grid', gap: 16 }}>
+            <Input label="Company Name *" value={form.name} onChange={setField('name')} placeholder="Acme Corp" />
+            <Input label="Industry" value={form.industry} onChange={setField('industry')} placeholder="Technology" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <Input label="Website" value={form.website} onChange={setField('website')} placeholder="https://..." />
+              <Input label="Phone" value={form.phone} onChange={setField('phone')} />
             </div>
+            <Input label="Assigned To" value={form.assignedTo} onChange={setField('assignedTo')} placeholder="Owner Name" disabled={!isAdmin} />
           </div>
         </Modal>
       )}
     </div>
   );
 }
-
-export default CompaniesPage;

@@ -1,10 +1,6 @@
-// =============================================================================
-// src/pages/PipelinePage.jsx
-// =============================================================================
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import theme from '../config/theme';
-import { DB_KEYS, OPTIONS } from '../config/db';
-import useDB from '../hooks/useDB';
+import { OPTIONS } from '../config/db';
 import DataTable, { TR, TD } from '../components/ui/DataTable';
 import { Input, Select, Textarea } from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -14,18 +10,41 @@ import SearchBar from '../components/ui/SearchBar';
 import PageHeader from '../components/ui/PageHeader';
 import { formatDate, formatMoney, formatMoneyCompact } from '../utils/formatters';
 import { required } from '../utils/validators';
+import { useAuth } from '../context/AuthContext';
 
 const T = theme;
-const DEFAULT_FORM = { name:'', totalValue:'', deals:'', stage:'Prospecting', status:'Active', notes:'' };
+const DEFAULT_FORM = { name:'', totalValue:'', deals:'', stage:'Prospecting', status:'Active', notes:'', assignedTo:'' };
+const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 function PipelinePage() {
-  const { items: pipelines, loading, add, update, remove } = useDB(DB_KEYS.PIPELINES);
+  const { user } = useAuth();
+  const [pipelines, setPipelines] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch]     = useState('');
   const [modal, setModal]       = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [form, setForm]         = useState(DEFAULT_FORM);
+  const [form, setForm]         = useState({ ...DEFAULT_FORM, assignedTo: user?.name || '' });
   const [errors, setErrors]     = useState({});
   const [saving, setSaving]     = useState(false);
+
+  const isAdmin = ['Admin', 'CEO / Founder'].includes(user?.role);
+  const canEdit = isAdmin || ['Sales Representative', 'Project Manager'].includes(user?.role);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/crm/pipelines`, { headers: authHeader() });
+      const data = await res.json();
+      setPipelines(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch pipelines:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(() =>
     pipelines.filter(p=>[p.name,p.stage].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),
@@ -41,13 +60,27 @@ function PipelinePage() {
     const e={}; const ne=required(form.name,'Pipeline name'); if(ne) e.name=ne;
     if(Object.keys(e).length>0){setErrors(e);return;}
     setSaving(true);
-    editItem ? await update(editItem.id,form) : await add(form);
-    setSaving(false); setModal(false);
+    try {
+      const url = editItem ? `${API_BASE}/api/crm/pipelines/${editItem.id}` : `${API_BASE}/api/crm/pipelines`;
+      const method = editItem ? 'PUT' : 'POST';
+      await fetch(url, {
+        method,
+        headers: authHeader(),
+        body: JSON.stringify(form)
+      });
+      setModal(false);
+      fetchData();
+    } catch (err) {
+      alert('Failed to save pipeline');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async item => {
     if(!window.confirm(`Delete pipeline "${item.name}"?`)) return;
-    await remove(item.id);
+    await fetch(`${API_BASE}/api/crm/pipelines/${item.id}`, { method: 'DELETE', headers: authHeader() });
+    fetchData();
   };
 
   if(loading) return <div style={{padding:40,color:T.text.muted}}>Loading…</div>;
@@ -70,8 +103,8 @@ function PipelinePage() {
             <TD><Badge>{p.status||'Active'}</Badge></TD>
             <TD style={{color:T.text.muted,fontSize:12}}>{formatDate(p.createdAt)}</TD>
             <TD><div style={{display:'flex',gap:6}}>
-              <Button size="sm" variant="secondary" onClick={()=>openEdit(p)}>Edit</Button>
-              <Button size="sm" variant="danger"    onClick={()=>handleDelete(p)}>Delete</Button>
+              {canEdit && <Button size="sm" variant="secondary" onClick={()=>openEdit(p)}>Edit</Button>}
+              {canEdit && <Button size="sm" variant="danger"    onClick={()=>handleDelete(p)}>Delete</Button>}
             </div></TD>
           </TR>
         )}
@@ -91,6 +124,7 @@ function PipelinePage() {
             <div style={{gridColumn:'1/-1'}}>
               <Textarea label="Notes" value={form.notes} onChange={setField('notes')} placeholder="Pipeline notes…" />
             </div>
+            <Input label="Assigned To" value={form.assignedTo} onChange={setField('assignedTo')} placeholder="Owner Name" disabled={!isAdmin} />
           </div>
         </Modal>
       )}

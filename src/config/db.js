@@ -99,7 +99,11 @@ export const OPTIONS = {
   pipelineStatuses: ['Active', 'Paused', 'Completed', 'Cancelled'],
 
   // User roles (shown at signup)
-  userRoles: ['Sales Rep', 'Sales Manager', 'Account Manager', 'Business Developer', 'CEO / Founder', 'Other'],
+  userRoles: [
+    'Admin', 'CEO / Founder', 'HR Manager', 'Sales Representative', 
+    'Marketing Specialist', 'Accountant', 'Support Agent', 'Project Manager', 
+    'Regular Employee'
+  ],
 
   // Project statuses
   projectStatuses: ['Planning', 'Active', 'On Hold', 'Completed', 'Cancelled'],

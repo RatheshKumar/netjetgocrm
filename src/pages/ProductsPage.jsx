@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import theme from '../config/theme';
-import { DB_KEYS, OPTIONS } from '../config/db';
-import useDB from '../hooks/useDB';
+import { OPTIONS } from '../config/db';
 import DataTable, { TR, TD } from '../components/ui/DataTable';
 import { Input, Select } from "../components/ui/Input";
 import Button from '../components/ui/Button';
@@ -11,18 +10,40 @@ import SearchBar from '../components/ui/SearchBar';
 import PageHeader from '../components/ui/PageHeader';
 import { formatDate } from '../utils/formatters';
 import { required } from '../utils/validators';
+import { useAuth } from '../context/AuthContext';
 
 const T = theme;
 const DEFAULT_FORM = { name: '', sku: '', category: '', price: '', stock: '', description: '' };
+const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 function ProductsPage() {
-  const { items: products, loading, add, update, remove } = useDB(DB_KEYS.PRODUCTS);
+  const { user } = useAuth();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading]   = useState(true);
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+
+  const canEdit = ['Admin', 'CEO / Founder', 'Sales Representative'].includes(user?.role);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/crm/products`, { headers: authHeader() });
+      const data = await res.json();
+      setProducts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to fetch products:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(() =>
     products.filter(p => [p.name, p.sku, p.category].some(v => v?.toLowerCase().includes(search.toLowerCase()))),
@@ -39,13 +60,27 @@ function ProductsPage() {
     if(Object.keys(e).length>0){setErrors(e);return;}
     
     setSaving(true);
-    editItem ? await update(editItem.id, form) : await add(form);
-    setSaving(false); setModal(false);
+    try {
+      const url = editItem ? `${API_BASE}/api/crm/products/${editItem.id}` : `${API_BASE}/api/crm/products`;
+      const method = editItem ? 'PUT' : 'POST';
+      await fetch(url, {
+        method,
+        headers: authHeader(),
+        body: JSON.stringify(form)
+      });
+      setModal(false);
+      fetchData();
+    } catch (err) {
+      alert('Failed to save product');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async item => {
     if(!window.confirm(`Delete product "${item.name}"?`)) return;
-    await remove(item.id);
+    await fetch(`${API_BASE}/api/crm/products/${item.id}`, { method: 'DELETE', headers: authHeader() });
+    fetchData();
   };
 
   if (loading) return <div style={{padding:40,color:T.text.muted}}>Loading…</div>;
@@ -54,7 +89,7 @@ function ProductsPage() {
     <div>
       <PageHeader title="Products" count={products.length}>
         <SearchBar value={search} onChange={setSearch} placeholder="Search products…" />
-        <Button onClick={openAdd}>+ Add Product</Button>
+        {canEdit && <Button onClick={openAdd}>+ Add Product</Button>}
       </PageHeader>
       
       <DataTable columns={['Product Name', 'SKU', 'Category', 'Price', 'Stock', 'Added', 'Actions']}
@@ -68,9 +103,9 @@ function ProductsPage() {
             <TD>{p.stock || '0'}</TD>
             <TD style={{color:T.text.muted,fontSize:12}}>{formatDate(p.createdAt)}</TD>
             <TD><div style={{display:'flex',gap:6}}>
-              <Button size="sm" variant="secondary" onClick={()=>openEdit(p)}>Edit</Button>
-              <Button size="sm" variant="danger"    onClick={()=>handleDelete(p)}>Delete</Button>
-            </div></TD>
+                {canEdit && <Button size="sm" variant="secondary" onClick={()=>openEdit(p)}>Edit</Button>}
+                {canEdit && <Button size="sm" variant="danger"    onClick={()=>handleDelete(p)}>Delete</Button>}
+              </div></TD>
           </TR>
         )}
       />

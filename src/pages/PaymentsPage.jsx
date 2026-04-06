@@ -1,10 +1,6 @@
-// =============================================================================
-// src/pages/PaymentsPage.jsx
-// =============================================================================
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import theme from '../config/theme';
-import { DB_KEYS, OPTIONS } from '../config/db';
-import useDB from '../hooks/useDB';
+import { OPTIONS } from '../config/db';
 import DataTable, { TR, TD } from '../components/ui/DataTable';
 import { Input, Select, Textarea } from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -14,22 +10,53 @@ import SearchBar from '../components/ui/SearchBar';
 import PageHeader from '../components/ui/PageHeader';
 import { formatDate, formatMoney, formatMoneyCompact, generateId } from '../utils/formatters';
 import { required } from '../utils/validators';
+import { useAuth } from '../context/AuthContext';
 
 const T = theme;
 const DEFAULT_FORM = { client:'', invoiceRef:'', amount:'', method:'Cash', transactionId:'', date:'', notes:'' };
+const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 function PaymentsPage() {
-  const { items: payments, loading: payLoading, add, remove } = useDB(DB_KEYS.PAYMENTS);
-  const { items: invoices }  = useDB(DB_KEYS.INVOICES);
-  const { items: companies } = useDB(DB_KEYS.COMPANIES);
-  const { items: contacts }  = useDB(DB_KEYS.CONTACTS);
-  
-  const loading = payLoading;
+  const { user } = useAuth();
+  const [payments, setPayments]   = useState([]);
+  const [invoices, setInvoices]   = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [contacts, setContacts]   = useState([]);
+  const [loading, setLoading]     = useState(true);
   const [search, setSearch] = useState('');
   const [modal, setModal]   = useState(false);
   const [form, setForm]     = useState(DEFAULT_FORM);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+
+  const canEdit = ['Admin', 'CEO / Founder', 'Accountant'].includes(user?.role);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [pRes, iRes, coRes, cnRes] = await Promise.all([
+        fetch(`${API_BASE}/api/crm/payments`, { headers: authHeader() }),
+        fetch(`${API_BASE}/api/crm/invoices`, { headers: authHeader() }),
+        fetch(`${API_BASE}/api/crm/companies`, { headers: authHeader() }),
+        fetch(`${API_BASE}/api/crm/contacts`, { headers: authHeader() })
+      ]);
+      const pData  = await pRes.json();
+      const iData  = await iRes.json();
+      const coData = await coRes.json();
+      const cnData = await cnRes.json();
+      setPayments(Array.isArray(pData) ? pData : []);
+      setInvoices(Array.isArray(iData) ? iData : []);
+      setCompanies(Array.isArray(coData) ? coData : []);
+      setContacts(Array.isArray(cnData) ? cnData : []);
+    } catch (err) {
+      console.error('Failed to fetch payment data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(() =>
     payments.filter(p=>[p.client,p.invoiceRef,p.transactionId].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),
@@ -45,13 +72,27 @@ function PaymentsPage() {
     const ae=required(form.amount,'Amount'); if(ae) e.amount=ae;
     if(Object.keys(e).length>0){setErrors(e);return;}
     setSaving(true);
-    await add({ ...form, transactionId: form.transactionId||`TXN${generateId().slice(0,8).toUpperCase()}` });
-    setSaving(false); setModal(false); setForm(DEFAULT_FORM);
+    try {
+      const transactionId = form.transactionId||`TXN${generateId().slice(0,8).toUpperCase()}`;
+      await fetch(`${API_BASE}/api/crm/payments`, {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify({ ...form, transactionId })
+      });
+      setModal(false);
+      setForm(DEFAULT_FORM);
+      fetchData();
+    } catch (err) {
+      alert('Failed to record payment');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async item => {
     if(!window.confirm('Delete this payment record?')) return;
-    await remove(item.id);
+    await fetch(`${API_BASE}/api/crm/payments/${item.id}`, { method: 'DELETE', headers: authHeader() });
+    fetchData();
   };
 
   if(loading) return <div style={{padding:40,color:T.text.muted}}>Loading…</div>;
@@ -61,7 +102,7 @@ function PaymentsPage() {
       <PageHeader title="Payments" count={payments.length}>
         <span style={{fontSize:13,color:T.text.muted}}>Received: <strong style={{color:T.status.success}}>{formatMoneyCompact(totalReceived)}</strong></span>
         <SearchBar value={search} onChange={setSearch} placeholder="Search payments…" />
-        <Button onClick={()=>{setForm(DEFAULT_FORM);setErrors({});setModal(true);}}>+ Record Payment</Button>
+        {canEdit && <Button onClick={()=>{setForm(DEFAULT_FORM);setErrors({});setModal(true);}}>+ Record Payment</Button>}
       </PageHeader>
       <DataTable columns={['Client','Invoice Ref','Amount','Method','Transaction ID','Date','Actions']}
         data={filtered} emptyIcon="💳" emptyTitle="No payments recorded" emptySubtitle="Record payments received from clients."
@@ -74,7 +115,7 @@ function PaymentsPage() {
             <TD><Badge>{p.method}</Badge></TD>
             <TD style={{color:T.text.muted,fontFamily:'monospace',fontSize:11}}>{p.transactionId}</TD>
             <TD style={{color:T.text.muted,fontSize:12}}>{formatDate(p.date||p.createdAt)}</TD>
-            <TD><Button size="sm" variant="danger" onClick={()=>handleDelete(p)}>Delete</Button></TD>
+            <TD>{canEdit && <Button size="sm" variant="danger" onClick={()=>handleDelete(p)}>Delete</Button>}</TD>
           </TR>
         )}
       />

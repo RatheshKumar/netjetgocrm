@@ -27,33 +27,37 @@ const GLOBAL_CSS = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { 
     font-family: ${theme.fonts.body}; 
-    background: #000; 
+    background: ${theme.surface.page}; 
     color: ${theme.text.primary}; 
     -webkit-font-smoothing: antialiased; 
-    display: flex;
-    justify-content: center;
-    align-items: center;
     min-height: 100vh;
     overflow: hidden;
   }
   #root {
-    width: 1920px;
-    height: 1080px;
+    width: 100vw;
+    height: 100vh;
     background: ${theme.surface.page};
     position: relative;
-    box-shadow: 0 0 50px rgba(0,0,0,0.5);
     overflow: hidden;
   }
-  @media (max-width: 1920px) or (max-height: 1080px) {
-    #root {
-      width: 100vw;
-      height: 100vh;
-    }
+  .root {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+    background: ${theme.surface.page};
   }
   input, select, textarea, button { font-family: inherit; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: ${theme.border.medium}; border-radius: 10px; }
+  .root {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+    background: ${theme.surface.page};
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes modalIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 `;

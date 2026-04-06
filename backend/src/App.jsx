@@ -7,43 +7,43 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 import Sidebar from './components/layout/Sidebar';
-import Topbar  from './components/layout/Topbar';
+import Topbar from './components/layout/Topbar';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // ── Auth pages ────────────────────────────────────────────────────────────────
-import LoginPage      from './pages/LoginPage';
+import LoginPage from './pages/LoginPage';
 import AdminLoginPage from './pages/AdminLoginPage';
-import SignupPage     from './pages/SignupPage';
+import SignupPage from './pages/SignupPage';
 
 // ── ERP Auth pages ────────────────────────────────────────────────────────────
-import ERPLoginPage  from './pages/erp/ERPLoginPage';
+import ERPLoginPage from './pages/erp/ERPLoginPage';
 import ERPSignupPage from './pages/erp/ERPSignupPage';
 
 // ── ERP Shell ─────────────────────────────────────────────────────────────────
 import ERPShell from './erp/ERPShell';
 
 // ── CRM pages ─────────────────────────────────────────────────────────────────
-import DashboardPage  from './pages/DashboardPage';
-import ContactsPage   from './pages/ContactsPage';
-import CompaniesPage  from './pages/CompaniesPage';
-import LeadsPage      from './pages/LeadsPage';
-import PipelinePage   from './pages/PipelinePage';
-import ContractsPage  from './pages/ContractsPage';
-import InvoicesPage   from './pages/InvoicesPage';
-import PaymentsPage   from './pages/PaymentsPage';
-import TasksPage      from './pages/TasksPage';
-import ProductsPage   from './pages/ProductsPage';
-import ProjectsPage   from './pages/ProjectsPage';
-import TicketsPage    from './pages/TicketsPage';
-import ReportsPage    from './pages/ReportsPage';
-import SettingsPage   from './pages/SettingsPage';
+import DashboardPage from './pages/DashboardPage';
+import ContactsPage from './pages/ContactsPage';
+import CompaniesPage from './pages/CompaniesPage';
+import LeadsPage from './pages/LeadsPage';
+import PipelinePage from './pages/PipelinePage';
+import ContractsPage from './pages/ContractsPage';
+import InvoicesPage from './pages/InvoicesPage';
+import PaymentsPage from './pages/PaymentsPage';
+import TasksPage from './pages/TasksPage';
+import ProductsPage from './pages/ProductsPage';
+import ProjectsPage from './pages/ProjectsPage';
+import TicketsPage from './pages/TicketsPage';
+import ReportsPage from './pages/ReportsPage';
+import SettingsPage from './pages/SettingsPage';
 // ✏️  Import new pages here ↑
 
 // ── Data hook & config ────────────────────────────────────────────────────────
-import useDB       from './hooks/useDB';
+import useDB from './hooks/useDB';
 import { DB_KEYS } from './config/db';
-import theme       from './config/theme';
+import theme from './config/theme';
 
 const T = theme;
 
@@ -69,32 +69,32 @@ function CRMShell() {
   const [activePage, setActivePage] = useState('dashboard');
 
   // ── Load all data with the useDB hook ──────────────────────────────────────
-  const contacts  = useDB(DB_KEYS.CONTACTS);
+  const contacts = useDB(DB_KEYS.CONTACTS);
   const companies = useDB(DB_KEYS.COMPANIES);
-  const leads     = useDB(DB_KEYS.LEADS);
+  const leads = useDB(DB_KEYS.LEADS);
   const contracts = useDB(DB_KEYS.CONTRACTS);
-  const invoices  = useDB(DB_KEYS.INVOICES);
-  const payments  = useDB(DB_KEYS.PAYMENTS);
-  const tasks     = useDB(DB_KEYS.TASKS);
+  const invoices = useDB(DB_KEYS.INVOICES);
+  const payments = useDB(DB_KEYS.PAYMENTS);
+  const tasks = useDB(DB_KEYS.TASKS);
   const pipelines = useDB(DB_KEYS.PIPELINES);
-  const products  = useDB(DB_KEYS.PRODUCTS);
-  const projects  = useDB(DB_KEYS.PROJECTS);
-  const tickets   = useDB(DB_KEYS.TICKETS);
+  const products = useDB(DB_KEYS.PRODUCTS);
+  const projects = useDB(DB_KEYS.PROJECTS);
+  const tickets = useDB(DB_KEYS.TICKETS);
   // ✏️  Add new data hooks here ↑
 
   // ── Sidebar badge counts ───────────────────────────────────────────────────
   const counts = {
-    contacts:  contacts.items.length,
+    contacts: contacts.items.length,
     companies: companies.items.length,
-    leads:     leads.items.filter(l => ['Pending','In Progress'].includes(l.status)).length,
-    pipeline:  pipelines.items.length,
+    leads: leads.items.filter(l => ['Pending', 'In Progress'].includes(l.status)).length,
+    pipeline: pipelines.items.length,
     contracts: contracts.items.length,
-    invoices:  invoices.items.length,
-    payments:  payments.items.length,
-    tasks:     tasks.items.filter(t => t.status !== 'Completed').length,
-    products:  products.items.length,
-    projects:  projects.items.filter(p => !['Completed', 'Cancelled'].includes(p.status)).length,
-    tickets:   tickets.items.filter(t => !['Resolved', 'Closed'].includes(t.status)).length,
+    invoices: invoices.items.length,
+    payments: payments.items.length,
+    tasks: tasks.items.filter(t => t.status !== 'Completed').length,
+    products: products.items.length,
+    projects: projects.items.filter(p => !['Completed', 'Cancelled'].includes(p.status)).length,
+    tickets: tickets.items.filter(t => !['Resolved', 'Closed'].includes(t.status)).length,
   };
 
   // ── Page map — add new pages here ─────────────────────────────────────────
@@ -154,12 +154,12 @@ function CRMShell() {
       <ProductsPage />
     ),
     projects: (
-      <ProjectsPage 
+      <ProjectsPage
         companies={companies.items}
       />
     ),
     tickets: (
-      <TicketsPage 
+      <TicketsPage
         contacts={contacts.items}
       />
     ),
@@ -174,7 +174,7 @@ function CRMShell() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', width: "100vw" }}>
       {/* Left sidebar */}
       <Sidebar
         activePage={activePage}
@@ -183,7 +183,7 @@ function CRMShell() {
       />
 
       {/* Main content area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', width: "100%" }}>
         <Topbar />
         <main style={{ flex: 1, overflowY: 'auto', padding: 28, background: T.surface.page }}>
           {pages[activePage] || <div style={{ color: T.text.muted, padding: 40 }}>Page not found.</div>}
@@ -215,13 +215,13 @@ function AuthGate({ requireAdmin, authView, setAuthView }) {
       return <AdminLoginPage />;
     }
     return authView === 'login'
-      ? <LoginPage  onGoSignup={() => setAuthView('signup')} />
-      : <SignupPage onGoLogin={()  => setAuthView('login')}  />;
+      ? <LoginPage onGoSignup={() => setAuthView('signup')} />
+      : <SignupPage onGoLogin={() => setAuthView('login')} />;
   }
 
   // Enforce role separation for active sessions
   const isAdmin = user.role === 'Admin' || user.role === 'Administrator';
-  
+
   if (requireAdmin && !isAdmin) {
     return (
       <div style={{ padding: 40, textAlign: 'center', fontFamily: T.fonts.body, color: T.text.primary }}>
@@ -257,8 +257,8 @@ function ERPAuthGate({ erpView, setErpView }) {
 
   if (!erpUser) {
     return erpView === 'login'
-      ? <ERPLoginPage  onGoSignup={() => setErpView('signup')} />
-      : <ERPSignupPage onGoLogin={() => setErpView('login')}   />;
+      ? <ERPLoginPage onGoSignup={() => setErpView('signup')} />
+      : <ERPSignupPage onGoLogin={() => setErpView('login')} />;
   }
 
   return <ERPShell />;
@@ -269,7 +269,7 @@ function ERPAuthGate({ erpView, setErpView }) {
 // =============================================================================
 export default function App() {
   const [authView, setAuthView] = useState('login'); // 'login' | 'signup' for CRM
-  const [erpView,  setErpView]  = useState('login'); // 'login' | 'signup' for ERP
+  const [erpView, setErpView] = useState('login'); // 'login' | 'signup' for ERP
 
   // Inject global CSS once on mount
   useEffect(() => {

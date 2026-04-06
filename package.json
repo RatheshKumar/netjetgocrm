@@ -21,7 +21,9 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "server": "node server.js"
+    "server": "node server.js",
+    "kill-port": "powershell -Command \"Get-NetTCPConnection -LocalPort 3001 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; exit 0\"",
+    "prod": "npm run kill-port && npm run build && npm run server"
   },
   "eslintConfig": {
     "extends": [

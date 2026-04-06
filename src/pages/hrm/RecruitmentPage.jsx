@@ -1,34 +1,62 @@
 // src/pages/hrm/RecruitmentPage.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import theme from '../../config/theme';
-import { DB_KEYS, OPTIONS } from '../../config/db';
-import useDB from '../../hooks/useDB';
+import { OPTIONS } from '../../config/db';
 import PageHeader from '../../components/ui/PageHeader';
 import Modal from '../../components/ui/Modal';
 import { Input, Select, Textarea } from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import { useAuth } from '../../context/AuthContext';
 
 const T = theme;
 const DEFAULT_FORM = { title: '', department: '', description: '', status: 'Open', postedDate: new Date().toISOString() };
 
+const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+
 export default function RecruitmentPage() {
-  const { items: jobs, loading, add, remove } = useDB(DB_KEYS.JOBS);
+  const { user } = useAuth();
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [modal, setModal]     = useState(false);
   const [form, setForm]       = useState(DEFAULT_FORM);
   const [saving, setSaving]   = useState(false);
+
+  const canEdit = ['Admin', 'CEO / Founder', 'HR Manager'].includes(user?.role);
+
+  const fetchJobs = useCallback(() => {
+    setLoading(true);
+    fetch(`${API_BASE}/api/hrm/recruitment`, { headers: authHeader() })
+      .then(r => r.json())
+      .then(data => { setJobs(Array.isArray(data) ? data : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
   const handleSave = async () => {
     if (!form.title || !form.department) return alert('Title and Department are required');
     setSaving(true);
     try {
-      await add(form);
+      await fetch(`${API_BASE}/api/hrm/recruitment`, {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify(form)
+      });
       setModal(false);
       setForm(DEFAULT_FORM);
+      fetchJobs();
     } catch (err) {
       alert('Failed to post job');
     } finally {
       setSaving(false);
     }
+  };
+
+  const removeJob = async (id) => {
+    if (!window.confirm('Delete this job?')) return;
+    await fetch(`${API_BASE}/api/hrm/recruitment/${id}`, { method: 'DELETE', headers: authHeader() });
+    fetchJobs();
   };
 
   const setField = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
@@ -38,7 +66,7 @@ export default function RecruitmentPage() {
       <PageHeader 
         title="Recruitment (ATS)" 
         subtitle="Manage job postings and applicant tracking" 
-        right={<Button onClick={() => setModal(true)}>Post Job</Button>}
+        right={canEdit && <Button onClick={() => setModal(true)}>Post Job</Button>}
       />
 
       <div style={{ background: '#fff', borderRadius: T.radius.lg, border: `1px solid ${T.border.light}`, overflow: 'hidden' }}>
@@ -58,8 +86,8 @@ export default function RecruitmentPage() {
                 <div style={{ fontSize: 12, color: T.text.muted }}>{job.department} • Posted {new Date(job.postedDate || job.createdAt).toLocaleDateString()}</div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
-                <Button size="sm" variant="ghost">View Pipeline →</Button>
-                <Button size="sm" variant="danger" onClick={() => remove(job.id)}>Delete</Button>
+                {canEdit && <Button size="sm" variant="ghost">View Pipeline →</Button>}
+                {canEdit && <Button size="sm" variant="danger" onClick={() => removeJob(job.id)}>Delete</Button>}
               </div>
             </div>
           ))}
