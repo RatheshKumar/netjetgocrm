@@ -8,6 +8,7 @@ import UnifiedDashboard from './pages/UnifiedDashboard';
 import FloatingChat from './components/collaboration/FloatingChat';
 import GlobalSearchModal from './components/GlobalSearchModal';
 import FloatingAIAssistant from './components/collaboration/FloatingAIAssistant';
+import FloatingHRAssistant from './components/collaboration/FloatingHRAssistant';
 
 // CRM Pages
 import LeadsPage from './pages/crm/LeadsPage';
@@ -147,6 +148,7 @@ export default function UnifiedShell() {
       <FloatingChat />
       <GlobalSearchModal />
       <FloatingAIAssistant />
+      <FloatingHRAssistant />
     </div>
   );
 }

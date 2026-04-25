@@ -48,6 +48,7 @@ app.use('/api/auth',    require('./modules/shared/auth/auth.routes'));
 app.use('/api/storage', require('./modules/shared/storage/storage.routes'));
 app.use('/api/search',  authenticate, require('./modules/shared/search/search.routes'));
 app.use('/api/ai',      authenticate, require('./modules/shared/ai/ai.routes'));
+app.use('/api/ai/hr',   authenticate, require('./modules/shared/ai/hr-ai.routes'));
 
 // CRM module
 app.use('/api/crm', require('./modules/crm/routes'));
