@@ -31,7 +31,14 @@ export default function LeadsPage() {
     })
     .then(res => res.json())
     .then(data => {
-      setLeads(Array.isArray(data) ? data : []);
+      let fetchedLeads = Array.isArray(data) ? data : [];
+      // Sort: Highest numeric AI score first
+      fetchedLeads.sort((a, b) => {
+        const scoreA = Number(a.lead_score) || 0;
+        const scoreB = Number(b.lead_score) || 0;
+        return scoreB - scoreA;
+      });
+      setLeads(fetchedLeads);
       setLoading(false);
     })
     .catch(() => setLoading(false));
@@ -65,6 +72,19 @@ export default function LeadsPage() {
     }
   };
 
+  const handleScoreLead = async (leadId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/crm/leads/${leadId}/score`, {
+        headers: { 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}` }
+      });
+      if (res.ok) {
+        fetchLeads(); // Reload table safely applying new sort
+      }
+    } catch (err) {
+      console.error('Failed to trigger AI scoring');
+    }
+  };
+
   const setField = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
 
   return (
@@ -86,25 +106,55 @@ export default function LeadsPage() {
           <thead>
             <tr style={{ background: T.surface.page, borderBottom: `1px solid ${T.border.light}` }}>
               <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Lead Name</th>
-              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Status</th>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Pipeline Status</th>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>AI Score</th>
               <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Value</th>
-              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Created</th>
+              <th style={{ padding: 16, textAlign: 'left', fontSize: 11, fontWeight: 700, color: T.text.muted, textTransform: 'uppercase' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {!loading && leads.map(lead => (
-              <tr key={lead.id} style={{ borderBottom: `1px solid ${T.border.light}` }}>
+            {!loading && leads.map(lead => {
+              const isHot = lead.lead_status === 'HOT';
+              
+              let badgeColor = T.brand.indigo;
+              let badgeBg = T.brand.indigo + '10';
+              if (lead.lead_status === 'HOT') { badgeColor = T.status.danger; badgeBg = T.status.danger + '15'; }
+              if (lead.lead_status === 'WARM') { badgeColor = T.status.warning; badgeBg = T.status.warning + '15'; }
+              if (lead.lead_status === 'COLD') { badgeColor = T.status.info; badgeBg = T.status.info + '15'; }
+
+              return (
+              <tr key={lead.id} style={{ 
+                borderBottom: `1px solid ${T.border.light}`,
+                background: isHot ? T.status.danger + '05' : 'transparent',
+                transition: 'background 0.2s'
+              }}>
                 <td style={{ padding: 16 }}>
-                  <div style={{ fontWeight: 700, color: T.text.primary }}>{lead.name}</div>
-                  <div style={{ fontSize: 12, color: T.text.muted }}>{lead.email}</div>
+                  <div style={{ fontWeight: 700, color: isHot ? T.status.danger : T.text.primary }}>{lead.name} {isHot && '🔥'}</div>
+                  <div style={{ fontSize: 12, color: T.text.muted }}>{lead.email || lead.phone || 'No Contact Info'}</div>
                 </td>
                 <td style={{ padding: 16 }}>
-                  <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: T.brand.indigo + '20', color: T.brand.indigo }}>{lead.status}</span>
+                  <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: T.surface.page, color: T.text.muted, border: `1px solid ${T.border.light}` }}>{lead.status}</span>
+                </td>
+                <td style={{ padding: 16 }}>
+                  {lead.lead_score ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ padding: '4px 8px', borderRadius: 6, fontSize: 12, fontWeight: 800, background: badgeBg, color: badgeColor }}>
+                        {lead.lead_status}
+                      </span>
+                      <span style={{ fontSize: 12, color: T.text.muted, fontWeight: 700 }}>{lead.lead_score}/100</span>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: 12, color: T.text.subtle }}>Unrated</span>
+                  )}
                 </td>
                 <td style={{ padding: 16, fontWeight: 700 }}>${Number(lead.value).toLocaleString()}</td>
-                <td style={{ padding: 16, fontSize: 12, color: T.text.muted }}>{new Date(lead.createdAt).toLocaleDateString()}</td>
+                <td style={{ padding: 16 }}>
+                  <button onClick={() => handleScoreLead(lead.id)} style={{ padding: '4px 12px', fontSize: 12, borderRadius: 6, border: `1px solid ${T.brand.indigo}40`, background: 'transparent', color: T.brand.indigo, cursor: 'pointer', fontWeight: 600 }}>
+                    ✨ Score AI
+                  </button>
+                </td>
               </tr>
-            ))}
+            )})}
             {leads.length === 0 && !loading && (
               <tr><td colSpan="4" style={{ padding: 40, textAlign: 'center', color: T.text.muted }}>No leads yet. Click "+ New Lead" to begin.</td></tr>
             )}

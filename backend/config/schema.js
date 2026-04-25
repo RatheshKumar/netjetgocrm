@@ -123,6 +123,8 @@ async function initSchema() {
         assignedTo VARCHAR(255),
         source VARCHAR(255),
         notes TEXT,
+        lead_score INT DEFAULT 0,
+        lead_status VARCHAR(20) DEFAULT 'COLD',
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )

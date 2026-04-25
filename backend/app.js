@@ -1,5 +1,7 @@
 // app.js - Unified CRM & HRM Business OS
 const express = require('express');
+const helmet  = require('helmet');
+const compression = require('compression');
 const cors    = require('cors');
 const path    = require('path');
 require('dotenv').config();
@@ -10,6 +12,14 @@ const { requestLogger }  = require('./modules/shared/middleware/logger.middlewar
 const { errorHandler }   = require('./modules/shared/middleware/error.middleware');
 
 const app = express();
+const isProd = process.env.NODE_ENV === 'production';
+
+// Production safety & optimization middlewares
+app.use(helmet({
+  contentSecurityPolicy: isProd ? undefined : false, // relax CSP in development
+  crossOriginEmbedderPolicy: false // Allows third party images if needed
+}));
+app.use(compression());
 
 // Fix #7: Strict CORS — only allow origins defined in ALLOWED_ORIGINS env var
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -36,6 +46,8 @@ app.use(requestLogger); // structured request logging
 // Shared modules
 app.use('/api/auth',    require('./modules/shared/auth/auth.routes'));
 app.use('/api/storage', require('./modules/shared/storage/storage.routes'));
+app.use('/api/search',  authenticate, require('./modules/shared/search/search.routes'));
+app.use('/api/ai',      authenticate, require('./modules/shared/ai/ai.routes'));
 
 // CRM module
 app.use('/api/crm', require('./modules/crm/routes'));
@@ -126,7 +138,16 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
 
 // Serve React frontend in production
 const buildPath = path.join(__dirname, '..', 'build');
-app.use(express.static(buildPath));
+app.use(express.static(buildPath, {
+  maxAge: isProd ? '1d' : 0, // cache static assets for 1 day in prod
+  setHeaders: (res, filePath) => {
+    // Avoid caching the entry point so users always get the latest bundle map
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
 });

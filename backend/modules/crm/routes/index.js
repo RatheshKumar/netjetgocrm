@@ -5,6 +5,7 @@ const pool = require('../../../config/db');
 const { v4: uuidv4 } = require('uuid');
 const ticketService = require('../services/ticket.service');
 const leadRepo = require('../repositories/lead.repository');
+const scoringService = require('../services/scoring.service');
 const { authenticate } = require('../../shared/middleware/auth.middleware');
 
 // ── Tickets ───────────────────────────────────────────────────────────────────
@@ -63,6 +64,17 @@ router.post('/leads', authenticate, async (req, res) => {
     res.status(201).json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+router.get('/leads/:id/score', authenticate, async (req, res) => {
+  try {
+    const updatedLead = await scoringService.evaluateLead(req.params.id);
+    res.json(updatedLead);
+  } catch (err) {
+    if (err.message === 'Lead not found') return res.status(404).json({ error: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.patch('/leads/:id', authenticate, async (req, res) => {
   try {
     const { name, company, email, phone, status, value, assignedTo, source, notes } = req.body;

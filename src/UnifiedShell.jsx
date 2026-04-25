@@ -6,6 +6,8 @@ import UnifiedSidebar, { navConfig } from './components/UnifiedSidebar';
 import ERPTopbar from './components/erp/ERPTopbar';
 import UnifiedDashboard from './pages/UnifiedDashboard';
 import FloatingChat from './components/collaboration/FloatingChat';
+import GlobalSearchModal from './components/GlobalSearchModal';
+import FloatingAIAssistant from './components/collaboration/FloatingAIAssistant';
 
 // CRM Pages
 import LeadsPage from './pages/crm/LeadsPage';
@@ -54,13 +56,13 @@ export default function UnifiedShell() {
 
   if (user?.role === 'Pending') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: T.surface.page, textAlign: 'center', padding: 40 }}>
-        <div style={{ fontSize: 64, marginBottom: 24 }}>⏳</div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--color-surface-page)', textAlign: 'center', padding: 'var(--spacing-2xl)' }}>
+        <div style={{ fontSize: 64, marginBottom: 'var(--spacing-lg)' }}>⏳</div>
         <h2 style={{ fontSize: 24, fontWeight: 900, color: T.text.primary, marginBottom: 12 }}>Account Pending Approval</h2>
-        <p style={{ color: T.text.muted, maxWidth: 400, lineHeight: 1.6, marginBottom: 32 }}>
+        <p style={{ color: 'var(--color-text-muted)', maxWidth: 400, lineHeight: 1.6, marginBottom: 'var(--spacing-xl)' }}>
           Your account has been created. An Administrator needs to assign your role before you can access the platform.
         </p>
-        <button onClick={logout} style={{ padding: '12px 32px', background: T.brand.indigo, color: '#fff', border: 'none', borderRadius: T.radius.md, fontWeight: 700, cursor: 'pointer' }}>
+        <button onClick={logout} style={{ padding: 'var(--spacing-md) var(--spacing-xl)', background: 'var(--color-primary)', color: 'var(--color-text-on-brand)', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, cursor: 'pointer' }}>
           Logout Session
         </button>
       </div>
@@ -134,15 +136,17 @@ export default function UnifiedShell() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: T.surface.page }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--color-surface-page)' }}>
       <UnifiedSidebar activePage={activePage} setPage={setActivePage} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <ERPTopbar activePage={activePage} />
-        <main style={{ flex: 1, overflowY: 'auto', padding: 28 }}>
+        <main style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-lg)' }}>
           {renderContent()}
         </main>
       </div>
       <FloatingChat />
+      <GlobalSearchModal />
+      <FloatingAIAssistant />
     </div>
   );
 }
