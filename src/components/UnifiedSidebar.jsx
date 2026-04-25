@@ -35,46 +35,94 @@ const Icons = {
   logout:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
 };
 
-const NAV = [
-  { id: 'dashboard',    label: 'Dashboard',       icon: Icons.dashboard },
-  { id: 'users',        label: 'User Management', icon: Icons.users, roles: ['Admin', 'CEO / Founder'] },
-
+const ALL_NAV_ITEMS = {
+  'dashboard':       { id: 'dashboard',       label: 'Dashboard',       icon: Icons.dashboard },
+  'users':           { id: 'users',           label: 'User Management', icon: Icons.users },
+  
   // CRM
-  { id: 'crm-leads',    label: 'Leads',           icon: Icons.leads,    roles: ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist'], cat: 'CRM' },
-  { id: 'crm-contacts', label: 'Contacts',        icon: Icons.contacts, roles: ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist', 'Support Agent'], cat: 'CRM' },
-  { id: 'crm-companies',label: 'Companies',       icon: Icons.companies,roles: ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist', 'Support Agent'], cat: 'CRM' },
-  { id: 'crm-contracts',label: 'Contracts',       icon: Icons.contracts,roles: ['Admin', 'CEO / Founder', 'Accountant', 'Sales Representative'], cat: 'CRM' },
-  { id: 'crm-products', label: 'Inventory',       icon: Icons.products, roles: ['Admin', 'CEO / Founder', 'Accountant', 'Project Manager', 'Sales Representative'], cat: 'CRM' },
-  { id: 'crm-marketing',label: 'Advertising',     icon: Icons.marketing,roles: ['Admin', 'CEO / Founder', 'Marketing Specialist'], cat: 'CRM' },
-  { id: 'crm-pipeline', label: 'Pipeline',        icon: Icons.pipeline, roles: ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist'], cat: 'CRM' },
-  { id: 'crm-projects', label: 'Workspaces',      icon: Icons.projects, roles: ['Admin', 'CEO / Founder', 'Project Manager', 'Sales Representative'], cat: 'CRM' },
-  { id: 'crm-tasks',    label: 'Operations',      icon: Icons.tasks,    roles: ['Admin', 'CEO / Founder', 'Project Manager', 'Support Agent', 'Sales Representative'], cat: 'CRM' },
-  { id: 'crm-tickets',  label: 'Service Tickets', icon: Icons.tickets,  roles: ['Admin', 'CEO / Founder', 'Support Agent', 'Project Manager', 'Sales Representative'], cat: 'CRM' },
-  { id: 'crm-invoices', label: 'Invoices',        icon: Icons.invoices, roles: ['Admin', 'CEO / Founder', 'Accountant', 'Sales Representative'], cat: 'CRM' },
-  { id: 'crm-payments', label: 'Financials',      icon: Icons.payments, roles: ['Admin', 'CEO / Founder', 'Accountant'], cat: 'CRM' },
+  'crm-leads':       { id: 'crm-leads',       label: 'Leads',           icon: Icons.leads },
+  'crm-contacts':    { id: 'crm-contacts',    label: 'Contacts',        icon: Icons.contacts },
+  'crm-companies':   { id: 'crm-companies',   label: 'Companies',       icon: Icons.companies },
+  'crm-contracts':   { id: 'crm-contracts',   label: 'Contracts',       icon: Icons.contracts },
+  'crm-products':    { id: 'crm-products',    label: 'Inventory',       icon: Icons.products },
+  'crm-marketing':   { id: 'crm-marketing',   label: 'Advertising',     icon: Icons.marketing },
+  'crm-pipeline':    { id: 'crm-pipeline',    label: 'Pipeline',        icon: Icons.pipeline },
+  'crm-projects':    { id: 'crm-projects',    label: 'Workspaces',      icon: Icons.projects },
+  'crm-tasks':       { id: 'crm-tasks',       label: 'Operations',      icon: Icons.tasks },
+  'crm-tickets':     { id: 'crm-tickets',     label: 'Service Tickets', icon: Icons.tickets },
+  'crm-invoices':    { id: 'crm-invoices',    label: 'Invoices',        icon: Icons.invoices },
+  'crm-payments':    { id: 'crm-payments',    label: 'Financials',      icon: Icons.payments },
 
   // HRM
-  { id: 'hrm-staff',      label: 'Employees',     icon: Icons.staff,    roles: ['Admin', 'CEO / Founder', 'HR Manager'], cat: 'HRM' },
-  { id: 'hrm-recruitment',label: 'Recruitment',   icon: Icons.recruit,  roles: ['Admin', 'CEO / Founder', 'HR Manager'], cat: 'HRM' },
-  { id: 'hrm-leaves',     label: 'Leave Mgmt',    icon: Icons.leaves,   roles: ['Admin', 'CEO / Founder', 'HR Manager', 'Regular Employee', 'Project Manager', 'Support Agent', 'Sales Representative', 'Marketing Specialist', 'Accountant'], cat: 'HRM' },
-  { id: 'hrm-attendance', label: 'Attendance',    icon: Icons.attendance,roles: ['Admin', 'CEO / Founder', 'HR Manager', 'Regular Employee', 'Project Manager', 'Support Agent', 'Sales Representative', 'Marketing Specialist', 'Accountant'], cat: 'HRM' },
-  { id: 'hrm-departments',label: 'Departments',   icon: Icons.dept,     roles: ['Admin', 'CEO / Founder', 'HR Manager'], cat: 'HRM' },
-  { id: 'hrm-payroll',    label: 'Payroll',       icon: Icons.payroll,  roles: ['Admin', 'CEO / Founder', 'HR Manager', 'Accountant'], cat: 'HRM' },
+  'hrm-staff':       { id: 'hrm-staff',       label: 'Employees',       icon: Icons.staff },
+  'hrm-recruitment': { id: 'hrm-recruitment', label: 'Recruitment',     icon: Icons.recruit },
+  'hrm-leaves':      { id: 'hrm-leaves',      label: 'Leave Mgmt',      icon: Icons.leaves },
+  'hrm-attendance':  { id: 'hrm-attendance',  label: 'Attendance',      icon: Icons.attendance },
+  'hrm-departments': { id: 'hrm-departments', label: 'Departments',     icon: Icons.dept },
+  'hrm-payroll':     { id: 'hrm-payroll',     label: 'Payroll',         icon: Icons.payroll },
 
-  // Collaboration
-  { id: 'collab-news',     label: 'Announcements',icon: Icons.announce, roles: ['Admin', 'CEO / Founder', 'HR Manager', 'Regular Employee', 'Project Manager', 'Support Agent', 'Sales Representative', 'Marketing Specialist', 'Accountant'], cat: 'COLLAB' },
-  { id: 'collab-meetings', label: 'Meetings',     icon: Icons.meetings, roles: ['Admin', 'CEO / Founder', 'HR Manager', 'Regular Employee', 'Project Manager', 'Support Agent', 'Sales Representative', 'Marketing Specialist', 'Accountant'], cat: 'COLLAB' },
-  { id: 'collab-rooms',    label: 'Discussions',  icon: Icons.discuss,  roles: ['Admin', 'CEO / Founder', 'HR Manager', 'Regular Employee', 'Project Manager', 'Support Agent', 'Sales Representative', 'Marketing Specialist', 'Accountant'], cat: 'COLLAB' },
-  { id: 'collab-wiki',     label: 'Knowledge Base',icon: Icons.knowledge,roles: ['Admin', 'CEO / Founder', 'HR Manager', 'Regular Employee', 'Project Manager', 'Support Agent', 'Sales Representative', 'Marketing Specialist', 'Accountant'], cat: 'COLLAB' },
+  // Collab
+  'collab-news':     { id: 'collab-news',     label: 'Announcements',   icon: Icons.announce },
+  'collab-meetings': { id: 'collab-meetings', label: 'Meetings',        icon: Icons.meetings },
+  'collab-rooms':    { id: 'collab-rooms',    label: 'Discussions',     icon: Icons.discuss },
+  'collab-wiki':     { id: 'collab-wiki',     label: 'Knowledge Base',  icon: Icons.knowledge },
 
-  { id: 'settings', label: 'Settings', icon: Icons.settings },
-];
+  'settings':        { id: 'settings',        label: 'Settings',        icon: Icons.settings },
+};
+
+// Clean config-based role definition (Task #4)
+export const navConfig = {
+  // Master Roles
+  'Admin': Object.keys(ALL_NAV_ITEMS),
+  'CEO / Founder': Object.keys(ALL_NAV_ITEMS),
+
+  // Department Roles
+  'Sales Representative': [
+    'dashboard', 'crm-leads', 'crm-contacts', 'crm-companies', 'crm-contracts', 'crm-pipeline', 'crm-projects', 'crm-tasks', 'crm-tickets', 'crm-invoices',
+    'hrm-leaves', 'hrm-attendance', // ESS
+    'collab-news', 'collab-meetings', 'collab-rooms', 'collab-wiki', 'settings'
+  ],
+  'HR Manager': [
+    'dashboard', 
+    'hrm-staff', 'hrm-recruitment', 'hrm-leaves', 'hrm-attendance', 'hrm-departments', 'hrm-payroll',
+    'collab-news', 'collab-meetings', 'collab-rooms', 'collab-wiki', 'settings'
+  ],
+  
+  // Others
+  'Marketing Specialist': [
+    'dashboard', 'crm-leads', 'crm-contacts', 'crm-companies', 'crm-marketing', 'crm-pipeline',
+    'hrm-leaves', 'hrm-attendance',
+    'collab-news', 'collab-meetings', 'collab-rooms', 'collab-wiki', 'settings'
+  ],
+  'Support Agent': [
+    'dashboard', 'crm-contacts', 'crm-companies', 'crm-tasks', 'crm-tickets',
+    'hrm-leaves', 'hrm-attendance',
+    'collab-news', 'collab-meetings', 'collab-rooms', 'collab-wiki', 'settings'
+  ],
+  'Accountant': [
+    'dashboard', 'crm-contracts', 'crm-products', 'crm-invoices', 'crm-payments', 'hrm-payroll',
+    'hrm-leaves', 'hrm-attendance',
+    'collab-news', 'collab-meetings', 'collab-rooms', 'collab-wiki', 'settings'
+  ],
+  'Project Manager': [
+    'dashboard', 'crm-products', 'crm-projects', 'crm-tasks', 'crm-tickets',
+    'hrm-leaves', 'hrm-attendance',
+    'collab-news', 'collab-meetings', 'collab-rooms', 'collab-wiki', 'settings'
+  ],
+
+  // Default Employee (Employee Self-Service)
+  'Regular Employee': [
+    'dashboard', 
+    'hrm-leaves', 'hrm-attendance', 
+    'collab-news', 'collab-meetings', 'collab-rooms', 'collab-wiki', 'settings'
+  ]
+};
 
 const SECTIONS = [
   { title: 'MENU',                items: ['dashboard', 'users'] },
   { title: 'CUSTOMER RELATIONS',  items: ['crm-leads','crm-contacts','crm-companies','crm-contracts','crm-products','crm-marketing','crm-pipeline','crm-projects','crm-tasks','crm-tickets','crm-invoices','crm-payments'] },
   { title: 'HUMAN RESOURCES',     items: ['hrm-staff','hrm-recruitment','hrm-leaves','hrm-attendance','hrm-departments','hrm-payroll'] },
-  { title: 'COLLABORATION',        items: ['collab-news','collab-meetings','collab-rooms','collab-wiki'] },
+  { title: 'COLLABORATION',       items: ['collab-news','collab-meetings','collab-rooms','collab-wiki'] },
   { title: 'SYSTEM',              items: ['settings'] },
 ];
 
@@ -83,7 +131,10 @@ export default function UnifiedSidebar({ activePage, setPage }) {
   const [collapsed, setCollapsed] = useState({});
 
   const toggle = (title) => setCollapsed(p => ({ ...p, [title]: !p[title] }));
-  const filtered = NAV.filter(item => !item.roles || item.roles.includes(user?.role));
+  
+  // Resolve allowed keys, defaulting to Regular Employee if role is unknown
+  const allowedKeys = navConfig[user?.role] || navConfig['Regular Employee'];
+  const filtered = allowedKeys.map(key => ALL_NAV_ITEMS[key]).filter(Boolean);
 
   const getSectionTitle = (orig) => {
     if (orig === 'CUSTOMER RELATIONS') {

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import theme from './config/theme';
 import { useAuth } from './context/AuthContext';
-import UnifiedSidebar from './components/UnifiedSidebar';
+import UnifiedSidebar, { navConfig } from './components/UnifiedSidebar';
 import ERPTopbar from './components/erp/ERPTopbar';
 import UnifiedDashboard from './pages/UnifiedDashboard';
 import FloatingChat from './components/collaboration/FloatingChat';
@@ -78,37 +78,12 @@ export default function UnifiedShell() {
     </div>
   );
 
-  const getPageConfig = (id) => {
-    // Find item in UnifiedSidebar's NAV (or define here for central source of truth)
-    // For simplicity, we'll define a mapping here or import it. 
-    // Since NAV is in Sidebar, let's just define the role requirements here.
-    const requirements = {
-      'users':           ['Admin', 'CEO / Founder'],
-      'crm-leads':       ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist'],
-      'crm-contacts':    ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist', 'Support Agent'],
-      'crm-companies':   ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist', 'Support Agent'],
-      'crm-contracts':   ['Admin', 'CEO / Founder', 'Accountant', 'Sales Representative'],
-      'crm-products':    ['Admin', 'CEO / Founder', 'Accountant', 'Project Manager', 'Sales Representative'],
-      'crm-marketing':   ['Admin', 'CEO / Founder', 'Marketing Specialist'],
-      'crm-pipeline':    ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist'],
-      'crm-projects':    ['Admin', 'CEO / Founder', 'Project Manager', 'Sales Representative'],
-      'crm-tasks':       ['Admin', 'CEO / Founder', 'Project Manager', 'Support Agent', 'Sales Representative'],
-      'crm-tickets':     ['Admin', 'CEO / Founder', 'Support Agent', 'Project Manager', 'Sales Representative'],
-      'crm-invoices':    ['Admin', 'CEO / Founder', 'Accountant', 'Sales Representative'],
-      'crm-payments':    ['Admin', 'CEO / Founder', 'Accountant'],
-      'hrm-staff':       ['Admin', 'CEO / Founder', 'HR Manager'],
-      'hrm-recruitment': ['Admin', 'CEO / Founder', 'HR Manager'],
-      'hrm-leaves':      ['Admin', 'CEO / Founder', 'HR Manager', 'Regular Employee', 'Project Manager', 'Support Agent', 'Sales Representative', 'Marketing Specialist', 'Accountant'],
-      'hrm-attendance':  ['Admin', 'CEO / Founder', 'HR Manager', 'Regular Employee', 'Project Manager', 'Support Agent', 'Sales Representative', 'Marketing Specialist', 'Accountant'],
-      'hrm-departments': ['Admin', 'CEO / Founder', 'HR Manager'],
-      'hrm-payroll':     ['Admin', 'CEO / Founder', 'HR Manager', 'Accountant'],
-    };
-    return requirements[id];
-  };
-
   const renderContent = () => {
-    const allowedRoles = getPageConfig(activePage);
-    if (allowedRoles && !allowedRoles.includes(user?.role)) {
+    // Config-based access control synchronized with sidebar
+    const allowedKeys = navConfig[user?.role] || navConfig['Regular Employee'];
+    
+    // Safety fallback: User shouldn't navigate to unallowed routes even if URL / state changes
+    if (!allowedKeys.includes(activePage)) {
       return <AccessDenied />;
     }
 

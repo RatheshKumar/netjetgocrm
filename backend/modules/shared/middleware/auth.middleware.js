@@ -4,7 +4,9 @@ const authService = require('../auth/auth.service');
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'No token provided' });
+    const err = new Error('No token provided');
+    err.status = 401;
+    return next(err);
   }
 
   const token = authHeader.split(' ')[1];
@@ -13,14 +15,17 @@ function authenticate(req, res, next) {
     req.user = decoded; // { id, email, role }
     next();
   } catch (err) {
-    res.status(403).json({ error: 'Failed to authenticate token' });
+    err.status = 401;
+    next(err);
   }
 }
 
 function authorize(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user || !allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Unauthorized role' });
+      const err = new Error('Unauthorized role');
+      err.status = 403;
+      return next(err);
     }
     next();
   };

@@ -23,11 +23,13 @@ export function AuthProvider({ children }) {
   // On app load: restore session from storage
   useEffect(() => {
     (async () => {
-      const session = await storage.get(DB_KEYS.SESSION);
-      if (session?.token && session?.user) {
-        setUser(session.user);
-        setErpUser(session.user); // Unified session
-      }
+      try {
+        const session = JSON.parse(localStorage.getItem('session:current'));
+        if (session?.token && session?.user) {
+          setUser(session.user);
+          setErpUser(session.user); // Unified session
+        }
+      } catch (e) {}
       setLoading(false);
     })();
   }, []);
@@ -44,9 +46,10 @@ export function AuthProvider({ children }) {
       const result = await response.json();
       if (!response.ok) return { ok: false, error: result.error || 'Login failed' };
 
-      // Save token and user info
-      await storage.save(DB_KEYS.SESSION, { token: result.token, user: result.user });
-      setUser(result.user);
+      const payload = result.data || result; // Fallback in case of non-enveloped response
+      // Save token and user info natively in browser
+      localStorage.setItem('session:current', JSON.stringify({ token: payload.token, user: payload.user }));
+      setUser(payload.user);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: 'Cannot connect to server.' };
@@ -60,10 +63,10 @@ export function AuthProvider({ children }) {
     return res;
   };
 
-  // ── Unified Signup (via HRM module) ─────────────────────────────────────────────
+  // ── Unified Signup (via shared auth/register) ──────────────────────────────
   const signup = async (data) => {
     try {
-      const response = await fetch(`${API_BASE}/api/hrm/employees`, {
+      const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -78,7 +81,7 @@ export function AuthProvider({ children }) {
 
   // ── Logout ─────────────────────────────────────────────────────────────────
   const logout = async () => {
-    await storage.remove(DB_KEYS.SESSION);
+    localStorage.removeItem('session:current');
     setUser(null);
     setErpUser(null);
   };

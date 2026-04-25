@@ -13,6 +13,20 @@
 //   other      → /api/storage (generic fallback)
 // =============================================================================
 
+const API_BASE = window.location.hostname === 'localhost' && window.location.port === '3000' ? 'http://localhost:3001' : '';
+
+const getToken = () => {
+  try {
+    const session = JSON.parse(localStorage.getItem('session:current'));
+    return session?.token || '';
+  } catch (e) { return ''; }
+};
+
+const getHeaders = (headers = {}) => ({
+  'Authorization': `Bearer ${getToken()}`,
+  ...headers
+});
+
 const storage = {
   /**
    * Get a single record by its full key (e.g. "contacts:abc123")
@@ -20,7 +34,7 @@ const storage = {
    */
   async get(key) {
     try {
-      const r = await fetch(`/api/storage/${key}`);
+      const r = await fetch(`${API_BASE}/api/storage/${key}`, { headers: getHeaders() });
       if (!r.ok) return null;
       const data = await r.json();
       // If the value is a stringified JSON (from the SQL storage table), parse it.
@@ -40,9 +54,9 @@ const storage = {
    */
   async save(key, data) {
     try {
-      const r = await fetch(`/api/storage/${key}`, {
+      const r = await fetch(`${API_BASE}/api/storage/${key}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
       });
       return r.ok;
@@ -57,7 +71,7 @@ const storage = {
    */
   async remove(key) {
     try {
-      const r = await fetch(`/api/storage/${key}`, { method: 'DELETE' });
+      const r = await fetch(`${API_BASE}/api/storage/${key}`, { method: 'DELETE', headers: getHeaders() });
       return r.ok;
     } catch (err) {
       console.error(`[storage.remove] Failed for "${key}":`, err);
@@ -73,7 +87,7 @@ const storage = {
   async getAll(prefix) {
     try {
       // Generic fallback
-      const r = await fetch(`/api/storage?prefix=${prefix}`);
+      const r = await fetch(`${API_BASE}/api/storage?prefix=${prefix}`, { headers: getHeaders() });
       if (!r.ok) return [];
       const data = await r.json();
       const keys = data.keys || [];

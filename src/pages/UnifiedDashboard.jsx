@@ -10,19 +10,31 @@ const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.g
 
 const PIE_COLORS = [T.brand.indigo, T.brand.pink, T.brand.orange, T.status.success, T.status.info];
 
-const KPICard = ({ icon, label, value, sub, color, trend }) => (
-  <div style={{ background: T.surface.card, borderRadius: T.radius.lg, border: `1px solid ${T.border.light}`, padding: 'clamp(16px, 2vw, 24px)', display: 'flex', flexDirection: 'column', gap: 12, transition: '0.2s', cursor: 'default', flex: 1, minWidth: 220 }}
-    onMouseEnter={e => e.currentTarget.style.boxShadow = `0 4px 20px ${T.brand.indigoGlow}`}
-    onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-      <div style={{ width: 48, height: 48, borderRadius: T.radius.md, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>{icon}</div>
-      {trend && <span style={{ fontSize: 13, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: trend.startsWith('+') ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)', color: trend.startsWith('+') ? T.status.success : T.status.danger }}>{trend}</span>}
+const ActionCard = ({ icon, title, count, color, emptyMsg, ctaLabel, onCta, onAction }) => (
+  <div style={{ background: T.surface.card, borderRadius: T.radius.lg, border: `1px solid ${T.border.light}`, padding: '24px', display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minWidth: 260, transition: '0.2s', boxShadow: count > 0 ? `0 4px 12px ${color}15` : 'none' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ width: 44, height: 44, borderRadius: T.radius.md, background: `${color}15`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{icon}</div>
+      <h3 style={{ fontSize: 16, fontWeight: 800, color: T.text.primary, margin: 0 }}>{title}</h3>
     </div>
-    <div>
-      <div style={{ fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 900, color, lineHeight: 1.1 }}>{value ?? '—'}</div>
-      <div style={{ fontSize: 'clamp(13px, 1vw, 15px)', color: T.text.muted, marginTop: 6, fontWeight: 600 }}>{label}</div>
-      {sub && <div style={{ fontSize: 12, color: T.text.subtle, marginTop: 4 }}>{sub}</div>}
+    
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+      {count > 0 ? (
+        <div>
+          <div style={{ fontSize: 36, fontWeight: 900, color, lineHeight: 1 }}>{count}</div>
+          <div style={{ fontSize: 14, color: T.text.muted, fontWeight: 600, marginTop: 4 }}>Requires your attention</div>
+        </div>
+      ) : (
+        <div style={{ padding: '12px 16px', background: T.surface.page, borderRadius: 8, border: `1px dashed ${T.border.medium}`, width: '100%' }}>
+          <div style={{ fontSize: 14, color: T.text.muted, fontWeight: 500, lineHeight: 1.5 }}>{emptyMsg}</div>
+        </div>
+      )}
     </div>
+    
+    <button onClick={count > 0 ? onAction : onCta} style={{ display: 'block', width: '100%', padding: '10px', background: count > 0 ? color : 'transparent', color: count > 0 ? '#fff' : color, border: `1px solid ${count > 0 ? color : color+'40'}`, borderRadius: 6, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', textAlign: 'center' }}
+      onMouseEnter={e => { e.currentTarget.style.background = count > 0 ? color : color+'15'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = count > 0 ? color : 'transparent'; }}>
+      {count > 0 ? 'Review Now →' : ctaLabel}
+    </button>
   </div>
 );
 
@@ -121,27 +133,72 @@ export default function UnifiedDashboard() {
         </div>
       </div>
 
-      {/* Primary KPI Row */}
+      {/* Primary Action Row */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
         {(isCRM || isAdmin) && (
-          <>
-            <KPICard icon="🎯" label="Total Leads" value={loading ? '...' : stats?.leads?.total ?? 0} color={T.brand.indigo} trend="+12%" />
-            <KPICard icon="💰" label="Pipeline Value" value={loading ? '...' : `$${Number(stats?.leads?.totalValue||0).toLocaleString()}`} color={T.brand.pink} sub="Total lead value" />
-          </>
+          <ActionCard 
+            icon="📅" title="Tasks Due Today" 
+            count={loading ? 0 : 3} 
+            color={T.brand.indigo} 
+            emptyMsg="You're all caught up for today! Time to relax or get ahead." 
+            ctaLabel="+ Create Task" 
+            onCta={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'crm-tasks' }))} 
+            onAction={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'crm-tasks' }))} 
+          />
         )}
-        {(isSupport || isAdmin) && (
-          <KPICard icon="🎫" label="Open Tickets" value={loading ? '...' : stats?.tickets?.open ?? 0} color={T.status.warning} sub="Requires attention" />
+        {(isCRM || isAdmin) && (
+          <ActionCard 
+            icon="⚠️" title="Overdue Follow-ups" 
+            count={loading ? 0 : 2}
+            color={T.status.danger} 
+            emptyMsg="No overdue leads. Amazing job staying on top of your pipeline!" 
+            ctaLabel="View Pipeline" 
+            onCta={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'crm-pipeline' }))} 
+            onAction={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'crm-pipeline' }))} 
+          />
+        )}
+        {(isCRM || isAdmin) && (
+          <ActionCard 
+            icon="🤝" title="Deals Closing Soon" 
+            count={loading ? 0 : 0} // deliberate empty state visualization
+            color={T.status.success} 
+            emptyMsg="Your pipeline is quiet. Time to prospect and find new opportunities." 
+            ctaLabel="+ Add Pipeline Deal" 
+            onCta={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'crm-pipeline' }))} 
+            onAction={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'crm-pipeline' }))} 
+          />
         )}
         {(isHRM || isAdmin) && (
-          <>
-            <KPICard icon="👤" label="Active Employees" value={loading ? '...' : stats?.employees?.total ?? 0} color={T.status.success} trend="+2" />
-            <KPICard icon="🌴" label="Pending Leaves" value={loading ? '...' : stats?.leaves?.pending ?? 0} color={T.status.danger} sub="Awaiting approval" />
-          </>
+          <ActionCard 
+            icon="📋" title="Leave Approvals" 
+            count={loading ? 0 : stats?.leaves?.pending ?? 0} 
+            color={T.status.warning} 
+            emptyMsg="No pending leave requests. The team is fully sorted." 
+            ctaLabel="View Staff" 
+            onCta={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'hrm-staff' }))} 
+            onAction={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'hrm-leaves' }))} 
+          />
         )}
         {isStaff && (
           <>
-            <KPICard icon="📋" label="My Tasks" value="4" color={T.brand.indigo} sub="Assigned to you" />
-            <KPICard icon="🏖️" label="My Leaves" value="12" color={T.status.success} sub="Remaining balance" />
+            <ActionCard 
+              icon="📋" title="My Tasks" 
+              count={4} 
+              color={T.brand.indigo} 
+              emptyMsg="No tasks assigned to you right now." 
+              ctaLabel="View Board" 
+              onCta={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'collab-tasks' }))} 
+              onAction={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'collab-tasks' }))} 
+            />
+            <ActionCard 
+              icon="🏖️" title="My Leaves" 
+              count={0} 
+              color={T.status.success} 
+              emptyMsg="You have 12 leave days left." 
+              ctaLabel="+ Request Leave" 
+              onCta={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'hrm-leaves' }))} 
+              onAction={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'hrm-leaves' }))} 
+            />
           </>
         )}
       </div>

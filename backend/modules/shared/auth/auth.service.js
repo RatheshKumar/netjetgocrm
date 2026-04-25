@@ -4,7 +4,11 @@ const bcrypt = require('bcrypt');
 const employeeRepo = require('../../hrm/repositories/employee.repository');
 require('dotenv').config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'netjetgo-super-secret-key';
+if (!process.env.JWT_SECRET) {
+  console.error('❌ FATAL: JWT_SECRET environment variable is not set. Server cannot start.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 class AuthService {
   async authenticate(email, password) {

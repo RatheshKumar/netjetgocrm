@@ -1,20 +1,37 @@
 // app.js - Unified CRM & HRM Business OS
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
+const cors    = require('cors');
+const path    = require('path');
 require('dotenv').config();
+
+const env = require('./config/env'); // validates all required vars at startup
+const { authenticate }   = require('./modules/shared/middleware/auth.middleware');
+const { requestLogger }  = require('./modules/shared/middleware/logger.middleware');
+const { errorHandler }   = require('./modules/shared/middleware/error.middleware');
 
 const app = express();
 
-// Global Middleware
-app.use(cors());
-app.use(express.json());
+// Fix #7: Strict CORS — only allow origins defined in ALLOWED_ORIGINS env var
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
 
-// Request logger
-app.use((req, res, next) => {
-  console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
-  next();
-});
+app.use(cors({
+  origin(origin, callback) {
+    // Allow requests with no origin (e.g. curl, server-to-server) only in development
+    if (!origin) {
+      if (process.env.NODE_ENV === 'production') return callback(new Error('Origin required'), false);
+      return callback(null, true);
+    }
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS: origin '${origin}' not allowed`), false);
+  },
+  credentials: true,
+}));
+
+app.use(express.json());
+app.use(requestLogger); // structured request logging
 
 // Shared modules
 app.use('/api/auth',    require('./modules/shared/auth/auth.routes'));
@@ -23,19 +40,19 @@ app.use('/api/storage', require('./modules/shared/storage/storage.routes'));
 // CRM module
 app.use('/api/crm', require('./modules/crm/routes'));
 
-// HRM module
-app.use('/api/hrm', require('./modules/hrm/routes'));
+// Fix #1 & #2: HRM requires authentication (any role)
+app.use('/api/hrm', authenticate, require('./modules/hrm/routes'));
 
-// Collaboration module
-app.use('/api/collab', require('./modules/collab/routes'));
+// Fix #1 & #2: Collab requires authentication (any role)
+app.use('/api/collab', authenticate, require('./modules/collab/routes'));
 
 // Health Check
 app.get('/api/health', (req, res) => {
   res.json({ status: '🚀 NetJetGo CRM & HRM API is online', timestamp: new Date() });
 });
 
-// Dashboard aggregate stats
-app.get('/api/dashboard/stats', async (req, res) => {
+// Fix #1 & #2: Dashboard requires authentication (any role)
+app.get('/api/dashboard/stats', authenticate, async (req, res) => {
   try {
     const pool = require('./config/db');
     const [[leads]] = await pool.query(`SELECT COUNT(*) as total, SUM(value) as totalValue FROM crm_leads`);
@@ -113,5 +130,8 @@ app.use(express.static(buildPath));
 app.get('*', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
 });
+
+// Central error handler — MUST be last
+app.use(errorHandler);
 
 module.exports = app;
