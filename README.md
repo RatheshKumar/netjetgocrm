@@ -70,6 +70,7 @@ By integrating LLMs directly with live databases, the platform enables:
 ### AI / LLM
 
 * OpenAI GPT-4o-mini
+* Claude Sonnet 
 * Prompt Engineering (Few-shot, Context Injection, Role Scoping)
 
 ### Backend
@@ -92,12 +93,7 @@ By integrating LLMs directly with live databases, the platform enables:
 * helmet.js
 * Rate limiting & CORS
 
-### Cloud
 
-* AWS EC2
-* AWS S3
-* AWS RDS
-* IAM & VPC Networking
 
 ---
 
