@@ -11,11 +11,10 @@ import PageHeader from '../components/ui/PageHeader';
 import { formatDate, formatMoney, formatMoneyCompact } from '../utils/formatters';
 import { required } from '../utils/validators';
 import { useAuth } from '../context/AuthContext';
+import { authHeader, API_BASE } from '../utils/api';
 
 const T = theme;
 const DEFAULT_FORM = { client:'', project:'', amount:'', paidAmount:'0', dueDate:'', status:'Unpaid', notes:'', assignedTo:'' };
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 function InvoicesPage() {
   const { user } = useAuth();

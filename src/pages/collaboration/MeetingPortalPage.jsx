@@ -7,9 +7,9 @@ import Modal from '../../components/ui/Modal';
 import { Input, Textarea } from '../../components/ui/Input';
 import { useAuth } from '../../context/AuthContext';
 
+import { authHeader, API_BASE } from '../../utils/api';
+
 const T = theme;
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
 
 const DEFAULT_FORM = { title: '', description: '', meetingDate: '', meetingTime: '', duration: 60, location: '', meetLink: '' };
 const statusStyle = {

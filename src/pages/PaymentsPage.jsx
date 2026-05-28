@@ -11,11 +11,10 @@ import PageHeader from '../components/ui/PageHeader';
 import { formatDate, formatMoney, formatMoneyCompact, generateId } from '../utils/formatters';
 import { required } from '../utils/validators';
 import { useAuth } from '../context/AuthContext';
+import { authHeader, API_BASE } from '../utils/api';
 
 const T = theme;
-const DEFAULT_FORM = { client:'', invoiceRef:'', amount:'', method:'Cash', transactionId:'', date:'', notes:'' };
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+const DEFAULT_FORM = { clientName:'', invoiceId:'', amount:'', method:'Cash', date:'', notes:'' };
 
 function PaymentsPage() {
   const { user } = useAuth();
@@ -59,7 +58,7 @@ function PaymentsPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = useMemo(() =>
-    payments.filter(p=>[p.client,p.invoiceRef,p.transactionId].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),
+    payments.filter(p=>[p.clientName,p.invoiceId,p.method].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),
     [payments,search]
   );
 
@@ -68,16 +67,15 @@ function PaymentsPage() {
 
   const handleSave = async () => {
     const e={};
-    const ce=required(form.client,'Client'); if(ce) e.client=ce;
+    const ce=required(form.clientName,'Client'); if(ce) e.clientName=ce;
     const ae=required(form.amount,'Amount'); if(ae) e.amount=ae;
     if(Object.keys(e).length>0){setErrors(e);return;}
     setSaving(true);
     try {
-      const transactionId = form.transactionId||`TXN${generateId().slice(0,8).toUpperCase()}`;
       await fetch(`${API_BASE}/api/crm/payments`, {
         method: 'POST',
         headers: authHeader(),
-        body: JSON.stringify({ ...form, transactionId })
+        body: JSON.stringify({ clientName: form.clientName, invoiceId: form.invoiceId, amount: form.amount, method: form.method, status: 'Completed', paymentDate: form.date || null, notes: form.notes })
       });
       setModal(false);
       setForm(DEFAULT_FORM);
@@ -104,17 +102,17 @@ function PaymentsPage() {
         <SearchBar value={search} onChange={setSearch} placeholder="Search payments…" />
         {canEdit && <Button onClick={()=>{setForm(DEFAULT_FORM);setErrors({});setModal(true);}}>+ Record Payment</Button>}
       </PageHeader>
-      <DataTable columns={['Client','Invoice Ref','Amount','Method','Transaction ID','Date','Actions']}
+      <DataTable columns={['Client','Invoice Ref','Amount','Method','Status','Date','Actions']}
         data={filtered} emptyIcon="💳" emptyTitle="No payments recorded" emptySubtitle="Record payments received from clients."
         onAdd={()=>{setForm(DEFAULT_FORM);setErrors({});setModal(true);}} addLabel="Record Payment"
         renderRow={p=>(
           <TR key={p.id}>
-            <TD><strong>{p.client}</strong></TD>
-            <TD style={{color:T.text.muted,fontFamily:'monospace',fontSize:11}}>{p.invoiceRef||'—'}</TD>
+            <TD><strong>{p.clientName}</strong></TD>
+            <TD style={{color:T.text.muted,fontFamily:'monospace',fontSize:11}}>{p.invoiceId||'—'}</TD>
             <TD style={{color:T.status.success,fontWeight:700,fontSize:15}}>{formatMoney(p.amount)}</TD>
             <TD><Badge>{p.method}</Badge></TD>
-            <TD style={{color:T.text.muted,fontFamily:'monospace',fontSize:11}}>{p.transactionId}</TD>
-            <TD style={{color:T.text.muted,fontSize:12}}>{formatDate(p.date||p.createdAt)}</TD>
+            <TD><Badge>{p.status||'Completed'}</Badge></TD>
+            <TD style={{color:T.text.muted,fontSize:12}}>{formatDate(p.paymentDate||p.createdAt)}</TD>
             <TD>{canEdit && <Button size="sm" variant="danger" onClick={()=>handleDelete(p)}>Delete</Button>}</TD>
           </TR>
         )}
@@ -122,20 +120,19 @@ function PaymentsPage() {
       {modal && (
         <Modal title="Record Payment" onClose={()=>setModal(false)} onSave={handleSave} saveLabel={saving?'Saving…':'Save Payment'} wide>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 20px'}}>
-            <Select label="Client *"           value={form.client}     onChange={setField('client')} error={errors.client}>
+            <Select label="Client *"           value={form.clientName}     onChange={setField('clientName')} error={errors.clientName}>
               <option value="">Select client</option>
               {companies.map(c=><option key={c.id} value={c.name}>{c.name}</option>)}
               {contacts.map(c=><option key={c.id}  value={c.name}>{c.name}</option>)}
             </Select>
-            <Select label="Invoice Reference"  value={form.invoiceRef} onChange={setField('invoiceRef')}>
+            <Select label="Invoice Reference"  value={form.invoiceId} onChange={setField('invoiceId')}>
               <option value="">Select invoice (optional)</option>
-              {invoices.map(i=><option key={i.id} value={i.invoiceId}>{i.invoiceId} — {i.client}</option>)}
+              {invoices.map(i=><option key={i.id} value={i.invoiceNumber}>{i.invoiceNumber} — {i.clientName}</option>)}
             </Select>
             <Input label="Amount ($) *"        value={form.amount}     onChange={setField('amount')}    placeholder="0" type="number" error={errors.amount} />
             <Select label="Payment Method"     value={form.method}     onChange={setField('method')}>
               {OPTIONS.paymentMethods.map(m=><option key={m}>{m}</option>)}
             </Select>
-            <Input label="Transaction ID"      value={form.transactionId} onChange={setField('transactionId')} placeholder="Auto-generated if blank" />
             <Input label="Payment Date"        value={form.date}       onChange={setField('date')}      type="date" />
             <div style={{gridColumn:'1/-1'}}>
               <Textarea label="Notes" value={form.notes} onChange={setField('notes')} placeholder="Payment notes…" />

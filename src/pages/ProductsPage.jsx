@@ -11,11 +11,10 @@ import PageHeader from '../components/ui/PageHeader';
 import { formatDate } from '../utils/formatters';
 import { required } from '../utils/validators';
 import { useAuth } from '../context/AuthContext';
+import { authHeader, API_BASE } from '../utils/api';
 
 const T = theme;
 const DEFAULT_FORM = { name: '', sku: '', category: '', price: '', stock: '', description: '' };
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 function ProductsPage() {
   const { user } = useAuth();

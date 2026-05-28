@@ -7,9 +7,9 @@ import Modal from '../../components/ui/Modal';
 import { Input, Select, Textarea } from '../../components/ui/Input';
 import { useAuth } from '../../context/AuthContext';
 
+import { authHeader, API_BASE } from '../../utils/api';
+
 const T = theme;
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
 
 const CATEGORIES = ['General', 'CRM', 'HRM', 'IT', 'Finance', 'Operations', 'HR Policy', 'Onboarding'];
 const DEFAULT_FORM = { title: '', content: '', category: 'General', tags: '' };

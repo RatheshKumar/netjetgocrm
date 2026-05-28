@@ -8,11 +8,10 @@ import { Input, Select, Textarea } from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
 
+import { authHeader, API_BASE } from '../../utils/api';
+
 const T = theme;
 const DEFAULT_FORM = { title: '', department: '', description: '', status: 'Open', postedDate: new Date().toISOString() };
-
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 export default function RecruitmentPage() {
   const { user } = useAuth();

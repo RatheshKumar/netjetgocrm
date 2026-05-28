@@ -8,10 +8,10 @@ import { Input, Select } from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
 
+import { authHeader, API_BASE } from '../../utils/api';
+
 const T = theme;
 const DEFAULT_FORM = { name: '', email: '', department: '', role: '', status: 'Active', password: 'password123' };
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}` });
 
 export default function StaffPage() {
   const { user } = useAuth();

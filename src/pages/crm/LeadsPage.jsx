@@ -9,6 +9,8 @@ import Button from '../../components/ui/Button';
 import { OPTIONS } from '../../config/db';
 import { useAuth } from '../../context/AuthContext';
 
+import { authHeader, API_BASE } from '../../utils/api';
+
 const T = theme;
 const DEFAULT_FORM = { name: '', email: '', status: 'New', value: 0, assignedTo: '' };
 
@@ -22,12 +24,10 @@ export default function LeadsPage() {
 
   const isAdmin = ['Admin', 'CEO / Founder'].includes(user?.role);
 
-  const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
-
   const fetchLeads = useCallback(() => {
     setLoading(true);
     fetch(`${API_BASE}/api/crm/leads`, {
-       headers: { 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}` }
+       headers: authHeader()
     })
     .then(res => res.json())
     .then(data => {
@@ -54,10 +54,7 @@ export default function LeadsPage() {
     try {
       const res = await fetch(`${API_BASE}/api/crm/leads`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`
-        },
+        headers: authHeader(),
         body: JSON.stringify(form)
       });
       if (res.ok) {
@@ -75,7 +72,7 @@ export default function LeadsPage() {
   const handleScoreLead = async (leadId) => {
     try {
       const res = await fetch(`${API_BASE}/api/crm/leads/${leadId}/score`, {
-        headers: { 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}` }
+        headers: authHeader()
       });
       if (res.ok) {
         fetchLeads(); // Reload table safely applying new sort

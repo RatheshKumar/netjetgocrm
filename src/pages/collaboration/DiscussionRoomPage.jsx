@@ -7,9 +7,9 @@ import Modal from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../context/AuthContext';
 
+import { authHeader, API_BASE } from '../../utils/api';
+
 const T = theme;
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
 
 const ROOM_COLORS = ['#3D3BAF','#E8197A','#10B981','#F59E0B','#8B5CF6','#3B82F6','#F97316'];
 

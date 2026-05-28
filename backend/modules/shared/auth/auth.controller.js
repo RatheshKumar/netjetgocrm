@@ -10,9 +10,8 @@ class AuthController {
       if (!email || !password || !name) return fail(res, 'Name, email, and password are required', 400);
 
       const employeeService = require('../../hrm/services/employee.service');
-      // Force public signups into 'Pending' or similar non-admin roles unless specified safely 
-      // (We trust the frontend sends role: 'Pending' but we can also enforce it)
-      const data = { name, email, password, role: role || 'Pending', status: 'Active' };
+      // Fix role escalation vulnerability: Force default role to 'Pending'
+      const data = { name, email, password, role: 'Pending', status: 'Active' };
       const result = await employeeService.registerEmployee(data);
       
       return ok(res, result, 201);

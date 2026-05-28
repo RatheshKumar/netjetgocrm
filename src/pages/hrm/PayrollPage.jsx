@@ -7,9 +7,9 @@ import Modal from '../../components/ui/Modal';
 import { Input, Select } from '../../components/ui/Input';
 import StatCard from '../../components/ui/StatCard';
 
+import { authHeader, API_BASE } from '../../utils/api';
+
 const T = theme;
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const CURRENT_YEAR = new Date().getFullYear();

@@ -1,5 +1,6 @@
 // src/UnifiedShell.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import theme from './config/theme';
 import { useAuth } from './context/AuthContext';
 import UnifiedSidebar, { navConfig } from './components/UnifiedSidebar';
@@ -47,13 +48,16 @@ const T = theme;
 
 export default function UnifiedShell() {
   const { user, logout } = useAuth();
-  const [activePage, setActivePage] = useState('dashboard');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const activePage = location.pathname.substring(1) || 'dashboard';
 
   useEffect(() => {
-    const handleNav = (e) => setActivePage(e.detail);
+    const handleNav = (e) => navigate(`/${e.detail}`);
     window.addEventListener('nav-change', handleNav);
     return () => window.removeEventListener('nav-change', handleNav);
-  }, []);
+  }, [navigate]);
 
   if (user?.role === 'Pending') {
     return (
@@ -138,7 +142,7 @@ export default function UnifiedShell() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--color-surface-page)' }}>
-      <UnifiedSidebar activePage={activePage} setPage={setActivePage} />
+      <UnifiedSidebar activePage={activePage} setPage={(page) => navigate(`/${page}`)} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <ERPTopbar activePage={activePage} />
         <main style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-lg)' }}>

@@ -7,7 +7,7 @@ const path    = require('path');
 require('dotenv').config();
 
 const env = require('./config/env'); // validates all required vars at startup
-const { authenticate }   = require('./modules/shared/middleware/auth.middleware');
+const { authenticate, authorize } = require('./modules/shared/middleware/auth.middleware');
 const { requestLogger }  = require('./modules/shared/middleware/logger.middleware');
 const { errorHandler }   = require('./modules/shared/middleware/error.middleware');
 
@@ -50,8 +50,9 @@ app.use('/api/search',  authenticate, require('./modules/shared/search/search.ro
 app.use('/api/ai',      authenticate, require('./modules/shared/ai/ai.routes'));
 app.use('/api/ai/hr',   authenticate, require('./modules/shared/ai/hr-ai.routes'));
 
-// CRM module
-app.use('/api/crm', require('./modules/crm/routes'));
+// CRM module - secure with specific authorized roles
+const crmRoles = ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist', 'Support Agent', 'Project Manager', 'Accountant'];
+app.use('/api/crm', authenticate, authorize(...crmRoles), require('./modules/crm/routes'));
 
 // Fix #1 & #2: HRM requires authentication (any role)
 app.use('/api/hrm', authenticate, require('./modules/hrm/routes'));
@@ -73,6 +74,22 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
     const [[employees]] = await pool.query(`SELECT COUNT(*) as total FROM hrm_employees WHERE status='Active'`);
     const [[leaves]] = await pool.query(`SELECT COUNT(*) as pending FROM hrm_leaves WHERE status='Pending'`);
     const [[contacts]] = await pool.query(`SELECT COUNT(*) as total FROM crm_contacts`);
+
+    // Tasks stats
+    let taskFilter = '';
+    let taskParams = [];
+    if (req.user.role === 'Sales Representative' || req.user.role === 'Regular Employee') {
+      taskFilter = ' AND assignedTo = ?';
+      taskParams.push(req.user.name);
+    }
+    const [[tasksDue]] = await pool.query(`SELECT COUNT(*) as count FROM crm_tasks WHERE dueDate = CURDATE() AND status != 'Completed'${taskFilter}`, taskParams);
+    const [[tasksOverdue]] = await pool.query(`SELECT COUNT(*) as count FROM crm_tasks WHERE dueDate < CURDATE() AND status != 'Completed'${taskFilter}`, taskParams);
+
+    // Dynamic Activity Items
+    const [latestLeads] = await pool.query(`SELECT name, createdAt FROM crm_leads ORDER BY createdAt DESC LIMIT 2`);
+    const [latestTickets] = await pool.query(`SELECT subject, createdAt FROM crm_tickets ORDER BY createdAt DESC LIMIT 2`);
+    const [latestAnnouncements] = await pool.query(`SELECT title, createdAt FROM collab_announcements ORDER BY createdAt DESC LIMIT 2`);
+    const [latestEmployees] = await pool.query(`SELECT name, createdAt FROM hrm_employees ORDER BY createdAt DESC LIMIT 2`);
 
     // Additional data for robust charts
     const [leadSourcesRaw] = await pool.query(`
@@ -100,7 +117,7 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
     `);
     const deptHeadcount = deptHeadcountRaw.map(r => ({ name: r.name || 'Unassigned', value: Number(r.value) }));
 
-    const [[payrollStats]] = await pool.query(`SELECT SUM(netSalary) as total FROM hrm_payroll WHERE status='Paid'`);
+    const [[payrollStats]] = await pool.query(`SELECT SUM(netPay) as total FROM hrm_payroll WHERE status='Paid'`);
 
     // Growth Trend
     const [leadGrowthRaw] = await pool.query(`
@@ -131,7 +148,24 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
       ticketStatuses.push({ name: 'Open', value: 12 }, { name: 'In Progress', value: 8 }, { name: 'Closed', value: 35 });
     }
 
-    res.json({ leads, tickets, employees, leaves, contacts, leadSources, ticketStatuses, leadGrowth, deptHeadcount, payrollTotal: payrollStats?.total || 0 });
+    res.json({ 
+      leads, 
+      tickets, 
+      employees, 
+      leaves, 
+      contacts, 
+      leadSources, 
+      ticketStatuses, 
+      leadGrowth, 
+      deptHeadcount, 
+      payrollTotal: payrollStats?.total || 0,
+      tasksDue: tasksDue?.count || 0,
+      tasksOverdue: tasksOverdue?.count || 0,
+      latestLeads,
+      latestTickets,
+      latestAnnouncements,
+      latestEmployees
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

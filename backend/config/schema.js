@@ -140,6 +140,7 @@ async function initSchema() {
         jobTitle VARCHAR(255),
         company VARCHAR(255),
         notes TEXT,
+        assignedTo VARCHAR(255),
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
@@ -156,10 +157,19 @@ async function initSchema() {
         phone VARCHAR(50),
         address TEXT,
         size VARCHAR(50),
+        assignedTo VARCHAR(255),
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
+
+    // Dynamic Alterations for existing databases
+    try {
+      await pool.query(`ALTER TABLE crm_contacts ADD COLUMN assignedTo VARCHAR(255) AFTER notes`);
+    } catch (e) { /* already exists */ }
+    try {
+      await pool.query(`ALTER TABLE crm_companies ADD COLUMN assignedTo VARCHAR(255) AFTER size`);
+    } catch (e) { /* already exists */ }
 
     // ── CRM: Tickets ──────────────────────────────────────────────────────────
     await pool.query(`

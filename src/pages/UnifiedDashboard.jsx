@@ -4,9 +4,9 @@ import theme from '../config/theme';
 import { useAuth } from '../context/AuthContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar } from 'recharts';
 
+import { authHeader, API_BASE } from '../utils/api';
+
 const T = theme;
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}` });
 
 const PIE_COLORS = [T.brand.indigo, T.brand.pink, T.brand.orange, T.status.success, T.status.info];
 
@@ -96,20 +96,83 @@ export default function UnifiedDashboard() {
     return 'Good evening';
   };
 
-  const activityItems = [
-    { icon: '🎯', text: 'New lead captured from website', time: '5 min ago', color: T.brand.pink, roles: ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist'] },
-    { icon: '✅', text: 'Leave request approved for team member', time: '22 min ago', color: T.status.success, roles: ['Admin', 'CEO / Founder', 'HR Manager'] },
-    { icon: '🎫', text: 'Support ticket #245 escalated to High priority', time: '1 hr ago', color: T.status.warning, roles: ['Admin', 'CEO / Founder', 'Support Agent'] },
-    { icon: '👤', text: 'New employee profile onboarded', time: '2 hrs ago', color: T.brand.indigo, roles: ['Admin', 'CEO / Founder', 'HR Manager'] },
-    { icon: '📣', text: 'Company announcement posted', time: '3 hrs ago', color: T.brand.orange, roles: null },
-  ].filter(a => !a.roles || a.roles.includes(user?.role));
+  // Build dynamic activities from latest database items
+  const activityItems = [];
+  if (stats) {
+    if (stats.latestLeads && stats.latestLeads.length > 0) {
+      stats.latestLeads.forEach(l => {
+        activityItems.push({
+          icon: '🎯',
+          text: `New lead captured: ${l.name}`,
+          time: new Date(l.createdAt || new Date()).toLocaleDateString() + ' ' + new Date(l.createdAt || new Date()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+          color: T.brand.pink,
+          roles: ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist']
+        });
+      });
+    }
+    if (stats.latestTickets && stats.latestTickets.length > 0) {
+      stats.latestTickets.forEach(t => {
+        activityItems.push({
+          icon: '🎫',
+          text: `Support ticket submitted: ${t.subject}`,
+          time: new Date(t.createdAt || new Date()).toLocaleDateString() + ' ' + new Date(t.createdAt || new Date()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+          color: T.status.warning,
+          roles: ['Admin', 'CEO / Founder', 'Support Agent']
+        });
+      });
+    }
+    if (stats.latestAnnouncements && stats.latestAnnouncements.length > 0) {
+      stats.latestAnnouncements.forEach(a => {
+        activityItems.push({
+          icon: '📣',
+          text: `Announcement: ${a.title}`,
+          time: new Date(a.createdAt || new Date()).toLocaleDateString() + ' ' + new Date(a.createdAt || new Date()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+          color: T.brand.orange,
+          roles: null
+        });
+      });
+    }
+    if (stats.latestEmployees && stats.latestEmployees.length > 0) {
+      stats.latestEmployees.forEach(e => {
+        activityItems.push({
+          icon: '👤',
+          text: `New teammate onboarded: ${e.name}`,
+          time: new Date(e.createdAt || new Date()).toLocaleDateString() + ' ' + new Date(e.createdAt || new Date()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+          color: T.brand.indigo,
+          roles: ['Admin', 'CEO / Founder', 'HR Manager']
+        });
+      });
+    }
+  }
 
-  const priorities = [
-    { icon: '⚠️', text: 'SLA breach warning: Ticket #882 overdue', type: 'danger', roles: ['Admin', 'CEO / Founder', 'Support Agent'] },
-    { icon: '📋', text: `${stats?.leaves?.pending || 0} leave request(s) pending approval`, type: 'warning', roles: ['Admin', 'CEO / Founder', 'HR Manager'] },
-    { icon: '🎯', text: 'Q4 campaign launch due this week', type: 'info', roles: ['Admin', 'CEO / Founder', 'Marketing Specialist'] },
-    { icon: '👥', text: 'Monthly payroll run pending for this month', type: 'warning', roles: ['Admin', 'CEO / Founder', 'HR Manager', 'Accountant'] },
-  ].filter(p => !p.roles || p.roles.includes(user?.role));
+  // Fallback if no entries yet
+  if (activityItems.length === 0) {
+    activityItems.push(
+      { icon: '🎯', text: 'New lead captured from website', time: '5 min ago', color: T.brand.pink, roles: ['Admin', 'CEO / Founder', 'Sales Representative', 'Marketing Specialist'] },
+      { icon: '✅', text: 'Leave request approved for team member', time: '22 min ago', color: T.status.success, roles: ['Admin', 'CEO / Founder', 'HR Manager'] },
+      { icon: '🎫', text: 'Support ticket #245 escalated to High priority', time: '1 hr ago', color: T.status.warning, roles: ['Admin', 'CEO / Founder', 'Support Agent'] },
+      { icon: '👤', text: 'New employee profile onboarded', time: '2 hrs ago', color: T.brand.indigo, roles: ['Admin', 'CEO / Founder', 'HR Manager'] },
+      { icon: '📣', text: 'Company announcement posted', time: '3 hrs ago', color: T.brand.orange, roles: null }
+    );
+  }
+
+  const filteredActivities = activityItems.filter(a => !a.roles || a.roles.includes(user?.role));
+
+  const priorities = [];
+  if (stats) {
+    if (stats.tasksOverdue > 0) {
+      priorities.push({ icon: '⚠️', text: `${stats.tasksOverdue} task(s) currently overdue`, type: 'danger', roles: ['Admin', 'CEO / Founder', 'Sales Representative', 'Regular Employee'] });
+    }
+    if (stats.leaves?.pending > 0) {
+      priorities.push({ icon: '📋', text: `${stats.leaves.pending} leave request(s) pending approval`, type: 'warning', roles: ['Admin', 'CEO / Founder', 'HR Manager'] });
+    }
+  }
+  if (priorities.length === 0) {
+    priorities.push(
+      { icon: '📋', text: 'No pending priority items. System is healthy!', type: 'info', roles: null }
+    );
+  }
+  const filteredPriorities = priorities.filter(p => !p.roles || p.roles.includes(user?.role));
 
   return (
     <div style={{ maxWidth: 3000, margin: '0 auto', width: '100%' }}>
@@ -138,7 +201,7 @@ export default function UnifiedDashboard() {
         {(isCRM || isAdmin) && (
           <ActionCard 
             icon="📅" title="Tasks Due Today" 
-            count={loading ? 0 : 3} 
+            count={loading ? 0 : (stats?.tasksDue || 0)} 
             color={T.brand.indigo} 
             emptyMsg="You're all caught up for today! Time to relax or get ahead." 
             ctaLabel="+ Create Task" 
@@ -149,12 +212,12 @@ export default function UnifiedDashboard() {
         {(isCRM || isAdmin) && (
           <ActionCard 
             icon="⚠️" title="Overdue Follow-ups" 
-            count={loading ? 0 : 2}
+            count={loading ? 0 : (stats?.tasksOverdue || 0)}
             color={T.status.danger} 
-            emptyMsg="No overdue leads. Amazing job staying on top of your pipeline!" 
+            emptyMsg="No overdue tasks. Amazing job staying on top of your tasks!" 
             ctaLabel="View Pipeline" 
             onCta={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'crm-pipeline' }))} 
-            onAction={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'crm-pipeline' }))} 
+            onAction={() => window.dispatchEvent(new CustomEvent('nav-change', { detail: 'crm-tasks' }))} 
           />
         )}
         {(isCRM || isAdmin) && (
@@ -183,7 +246,7 @@ export default function UnifiedDashboard() {
           <>
             <ActionCard 
               icon="📋" title="My Tasks" 
-              count={4} 
+              count={loading ? 0 : (stats?.tasksDue || 0)} 
               color={T.brand.indigo} 
               emptyMsg="No tasks assigned to you right now." 
               ctaLabel="View Board" 
@@ -307,8 +370,8 @@ export default function UnifiedDashboard() {
             <h3 style={{ fontSize: 'clamp(16px, 1.2vw, 20px)', fontWeight: 800 }}>🚀 Recent Activity Feed</h3>
           </div>
           <div style={{ padding: '12px 0' }}>
-            {activityItems.map((a, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 28px', borderBottom: i < activityItems.length - 1 ? `1px solid ${T.border.light}` : 'none' }}>
+            {filteredActivities.map((a, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 28px', borderBottom: i < filteredActivities.length - 1 ? `1px solid ${T.border.light}` : 'none' }}>
                 <div style={{ width: 42, height: 42, borderRadius: '50%', background: `${a.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{a.icon}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 'clamp(14px, 1vw, 16px)', color: T.text.primary, fontWeight: 600 }}>{a.text}</div>
@@ -327,7 +390,7 @@ export default function UnifiedDashboard() {
               <h3 style={{ fontSize: 'clamp(16px, 1.2vw, 20px)', fontWeight: 800 }}>📅 Action Required</h3>
             </div>
             <div style={{ padding: '20px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {priorities.map((p, i) => {
+              {filteredPriorities.map((p, i) => {
                 const bg = p.type === 'danger' ? 'rgba(239,68,68,0.08)' : p.type === 'warning' ? 'rgba(245,158,11,0.08)' : 'rgba(59,130,246,0.08)';
                 const br = p.type === 'danger' ? 'rgba(239,68,68,0.2)' : p.type === 'warning' ? 'rgba(245,158,11,0.2)' : 'rgba(59,130,246,0.2)';
                 const cl = p.type === 'danger' ? T.status.danger : p.type === 'warning' ? T.status.warning : T.status.info;

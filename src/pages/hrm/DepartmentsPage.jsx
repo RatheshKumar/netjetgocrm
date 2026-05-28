@@ -6,9 +6,9 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { Input, Textarea } from '../../components/ui/Input';
 
+import { authHeader, API_BASE } from '../../utils/api';
+
 const T = theme;
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
-const authHeader = () => ({ 'Authorization': `Bearer ${JSON.parse(localStorage.getItem('session'))?.token}`, 'Content-Type': 'application/json' });
 
 const DEFAULT_FORM = { name: '', head: '', description: '' };
 const DEPT_ICONS = { Sales: '💼', HR: '👥', Finance: '💰', IT: '💻', Marketing: '📣', Operations: '⚙️', Management: '🏛️', default: '🏢' };
